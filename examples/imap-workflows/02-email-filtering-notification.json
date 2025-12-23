@@ -1,0 +1,132 @@
+{
+  "name": "IMAP Email Filtering with Notifications",
+  "nodes": [
+    {
+      "name": "IMAP Email Trigger",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.1,
+      "position": [250, 300],
+      "parameters": {
+        "mailbox": "INBOX",
+        "options": {
+          "allowUnauthorizedCerts": false,
+          "forceReconnect": 10,
+          "customEmailConfig": "simple"
+        }
+      },
+      "credentials": {
+        "imap": {
+          "id": "1",
+          "name": "IMAP Account"
+        }
+      }
+    },
+    {
+      "name": "Filter Important Emails",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [450, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "1",
+              "leftValue": "={{ $json.subject }}",
+              "rightValue": "urgent",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "2",
+              "leftValue": "={{ $json.subject }}",
+              "rightValue": "important",
+              "operator": {
+                "type": "string",
+                "operation": "contains",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        }
+      }
+    },
+    {
+      "name": "Format Notification",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [650, 300],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "notification",
+              "type": "string",
+              "value": "=🚨 Important Email Alert!\n\nFrom: {{ $json.from.text }}\nSubject: {{ $json.subject }}\nReceived: {{ $json.date }}\n\nPreview: {{ $json.textPlain.substring(0, 100) }}..."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Send Notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 300],
+      "parameters": {
+        "jsCode": "// Placeholder for notification logic\n// In production, replace with actual notification service (Slack, Discord, SMS, etc.)\nconsole.log($input.item.json.notification);\n\nreturn $input.item;"
+      }
+    }
+  ],
+  "connections": {
+    "IMAP Email Trigger": {
+      "main": [
+        [
+          {
+            "node": "Filter Important Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Important Emails": {
+      "main": [
+        [
+          {
+            "node": "Format Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Notification": {
+      "main": [
+        [
+          {
+            "node": "Send Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "description": "Monitors IMAP mailbox, filters important/urgent emails, and sends notifications",
+    "tags": ["email", "imap", "filtering", "notifications", "alerts"]
+  }
+}

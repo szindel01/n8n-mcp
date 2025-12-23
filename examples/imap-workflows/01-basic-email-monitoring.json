@@ -1,0 +1,102 @@
+{
+  "name": "Basic IMAP Email Monitoring",
+  "nodes": [
+    {
+      "name": "IMAP Email Trigger",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.1,
+      "position": [250, 300],
+      "parameters": {
+        "mailbox": "INBOX",
+        "options": {
+          "allowUnauthorizedCerts": false,
+          "forceReconnect": 10,
+          "customEmailConfig": "simple"
+        }
+      },
+      "credentials": {
+        "imap": {
+          "id": "1",
+          "name": "IMAP Account"
+        }
+      }
+    },
+    {
+      "name": "Extract Email Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [450, 300],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "from",
+              "type": "string",
+              "value": "={{ $json.from.text }}"
+            },
+            {
+              "id": "2",
+              "name": "subject",
+              "type": "string",
+              "value": "={{ $json.subject }}"
+            },
+            {
+              "id": "3",
+              "name": "receivedDate",
+              "type": "string",
+              "value": "={{ $json.date }}"
+            },
+            {
+              "id": "4",
+              "name": "body",
+              "type": "string",
+              "value": "={{ $json.textPlain || $json.textHtml }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Log Email Info",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300],
+      "parameters": {
+        "jsCode": "console.log('New email received:');\nconsole.log('From:', $input.item.json.from);\nconsole.log('Subject:', $input.item.json.subject);\nconsole.log('Date:', $input.item.json.receivedDate);\n\nreturn $input.item;"
+      }
+    }
+  ],
+  "connections": {
+    "IMAP Email Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Email Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Email Data": {
+      "main": [
+        [
+          {
+            "node": "Log Email Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "description": "Monitors an IMAP mailbox and logs basic information about new emails",
+    "tags": ["email", "imap", "monitoring"]
+  }
+}

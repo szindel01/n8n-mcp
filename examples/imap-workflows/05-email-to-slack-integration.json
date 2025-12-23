@@ -1,0 +1,175 @@
+{
+  "name": "IMAP Email to Slack Integration",
+  "nodes": [
+    {
+      "name": "IMAP Email Trigger",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.1,
+      "position": [250, 300],
+      "parameters": {
+        "mailbox": "INBOX",
+        "options": {
+          "allowUnauthorizedCerts": false,
+          "forceReconnect": 10,
+          "customEmailConfig": "simple"
+        }
+      },
+      "credentials": {
+        "imap": {
+          "id": "1",
+          "name": "IMAP Account"
+        }
+      }
+    },
+    {
+      "name": "Extract Email Info",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [450, 300],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "from",
+              "type": "string",
+              "value": "={{ $json.from.text }}"
+            },
+            {
+              "id": "2",
+              "name": "subject",
+              "type": "string",
+              "value": "={{ $json.subject }}"
+            },
+            {
+              "id": "3",
+              "name": "date",
+              "type": "string",
+              "value": "={{ $json.date }}"
+            },
+            {
+              "id": "4",
+              "name": "preview",
+              "type": "string",
+              "value": "={{ ($json.textPlain || $json.textHtml || '').substring(0, 200) }}"
+            },
+            {
+              "id": "5",
+              "name": "hasAttachments",
+              "type": "boolean",
+              "value": "={{ !!$json.attachments && $json.attachments.length > 0 }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Determine Priority",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300],
+      "parameters": {
+        "jsCode": "const subject = ($input.item.json.subject || '').toLowerCase();\nconst from = ($input.item.json.from || '').toLowerCase();\n\nlet emoji = '📧';\nlet urgency = 'normal';\nlet slackColor = '#36a64f';\n\nif (subject.includes('urgent') || subject.includes('critical') || subject.includes('asap')) {\n  emoji = '🚨';\n  urgency = 'urgent';\n  slackColor = '#ff0000';\n} else if (subject.includes('important')) {\n  emoji = '⚠️';\n  urgency = 'high';\n  slackColor = '#ff9900';\n} else if (from.includes('noreply') || from.includes('no-reply')) {\n  emoji = '🤖';\n  urgency = 'low';\n  slackColor = '#cccccc';\n}\n\nreturn {\n  json: {\n    ...($input.item.json),\n    emoji: emoji,\n    urgency: urgency,\n    slackColor: slackColor\n  }\n};"
+      }
+    },
+    {
+      "name": "Format Slack Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [850, 300],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "text",
+              "type": "string",
+              "value": "={{ $json.emoji }} New Email Received"
+            },
+            {
+              "id": "2",
+              "name": "blocks",
+              "type": "object",
+              "value": "=[\n  {\n    \"type\": \"header\",\n    \"text\": {\n      \"type\": \"plain_text\",\n      \"text\": \"{{ $json.emoji }} New Email: {{ $json.urgency.toUpperCase() }}\"\n    }\n  },\n  {\n    \"type\": \"section\",\n    \"fields\": [\n      {\n        \"type\": \"mrkdwn\",\n        \"text\": \"*From:*\\n{{ $json.from }}\"\n      },\n      {\n        \"type\": \"mrkdwn\",\n        \"text\": \"*Subject:*\\n{{ $json.subject }}\"\n      },\n      {\n        \"type\": \"mrkdwn\",\n        \"text\": \"*Date:*\\n{{ $json.date }}\"\n      },\n      {\n        \"type\": \"mrkdwn\",\n        \"text\": \"*Attachments:*\\n{{ $json.hasAttachments ? 'Yes' : 'No' }}\"\n      }\n    ]\n  },\n  {\n    \"type\": \"section\",\n    \"text\": {\n      \"type\": \"mrkdwn\",\n      \"text\": \"*Preview:*\\n{{ $json.preview }}...\"\n    }\n  },\n  {\n    \"type\": \"context\",\n    \"elements\": [\n      {\n        \"type\": \"mrkdwn\",\n        \"text\": \"Priority: *{{ $json.urgency }}*\"\n      }\n    ]\n  }\n]"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Send to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [1050, 300],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "channel": "#email-notifications",
+        "messageType": "block",
+        "blocksUi": "={{ $json.blocks }}",
+        "text": "={{ $json.text }}"
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "1",
+          "name": "Slack Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "IMAP Email Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Email Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Email Info": {
+      "main": [
+        [
+          {
+            "node": "Determine Priority",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Determine Priority": {
+      "main": [
+        [
+          {
+            "node": "Format Slack Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Slack Message": {
+      "main": [
+        [
+          {
+            "node": "Send to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "description": "Monitors IMAP mailbox and sends formatted notifications to Slack with priority detection",
+    "tags": ["email", "imap", "slack", "notifications", "integration"]
+  }
+}

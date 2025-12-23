@@ -1,0 +1,216 @@
+{
+  "name": "IMAP Email Auto-Categorization",
+  "nodes": [
+    {
+      "name": "IMAP Email Trigger",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.1,
+      "position": [250, 300],
+      "parameters": {
+        "mailbox": "INBOX",
+        "options": {
+          "allowUnauthorizedCerts": false,
+          "forceReconnect": 10,
+          "customEmailConfig": "simple"
+        }
+      },
+      "credentials": {
+        "imap": {
+          "id": "1",
+          "name": "IMAP Account"
+        }
+      }
+    },
+    {
+      "name": "Categorize Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300],
+      "parameters": {
+        "jsCode": "const subject = ($input.item.json.subject || '').toLowerCase();\nconst from = ($input.item.json.from.text || '').toLowerCase();\nconst body = ($input.item.json.textPlain || $input.item.json.textHtml || '').toLowerCase();\n\nlet category = 'general';\nlet priority = 'normal';\n\n// Categorization logic\nif (subject.includes('invoice') || subject.includes('payment') || subject.includes('receipt')) {\n  category = 'finance';\n} else if (subject.includes('order') || subject.includes('shipping') || subject.includes('delivery')) {\n  category = 'orders';\n} else if (subject.includes('support') || subject.includes('help') || subject.includes('issue')) {\n  category = 'support';\n  priority = 'high';\n} else if (from.includes('noreply') || from.includes('no-reply')) {\n  category = 'automated';\n  priority = 'low';\n} else if (subject.includes('meeting') || subject.includes('calendar') || subject.includes('invite')) {\n  category = 'meetings';\n}\n\n// Priority detection\nif (subject.includes('urgent') || subject.includes('asap') || subject.includes('critical')) {\n  priority = 'urgent';\n}\n\nreturn {\n  json: {\n    ...($input.item.json),\n    category: category,\n    priority: priority,\n    processedAt: new Date().toISOString()\n  }\n};"
+      }
+    },
+    {
+      "name": "Route by Category",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [650, 300],
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "id": "1",
+              "outputKey": "finance",
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "1",
+                    "leftValue": "={{ $json.category }}",
+                    "rightValue": "finance",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "id": "2",
+              "outputKey": "support",
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "1",
+                    "leftValue": "={{ $json.category }}",
+                    "rightValue": "support",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "id": "3",
+              "outputKey": "orders",
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "1",
+                    "leftValue": "={{ $json.category }}",
+                    "rightValue": "orders",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "fallbackOutput": "extra",
+        "options": {}
+      }
+    },
+    {
+      "name": "Process Finance Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 100],
+      "parameters": {
+        "jsCode": "console.log('Finance email:', $input.item.json.subject);\nconsole.log('Priority:', $input.item.json.priority);\n// Add logic to process finance emails (e.g., extract invoice data, save to accounting system)\n\nreturn $input.item;"
+      }
+    },
+    {
+      "name": "Process Support Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 250],
+      "parameters": {
+        "jsCode": "console.log('Support email:', $input.item.json.subject);\nconsole.log('Priority:', $input.item.json.priority);\n// Add logic to process support emails (e.g., create ticket, notify support team)\n\nreturn $input.item;"
+      }
+    },
+    {
+      "name": "Process Order Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 400],
+      "parameters": {
+        "jsCode": "console.log('Order email:', $input.item.json.subject);\nconsole.log('Priority:', $input.item.json.priority);\n// Add logic to process order emails (e.g., update order status, notify warehouse)\n\nreturn $input.item;"
+      }
+    },
+    {
+      "name": "Process Other Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 550],
+      "parameters": {
+        "jsCode": "console.log('General email:', $input.item.json.subject);\nconsole.log('Category:', $input.item.json.category);\nconsole.log('Priority:', $input.item.json.priority);\n\nreturn $input.item;"
+      }
+    }
+  ],
+  "connections": {
+    "IMAP Email Trigger": {
+      "main": [
+        [
+          {
+            "node": "Categorize Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Categorize Email": {
+      "main": [
+        [
+          {
+            "node": "Route by Category",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Category": {
+      "main": [
+        [
+          {
+            "node": "Process Finance Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Process Support Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Process Order Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Process Other Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "description": "Monitors IMAP mailbox, automatically categorizes emails by type, and routes to appropriate handlers",
+    "tags": ["email", "imap", "categorization", "automation", "routing", "triage"]
+  }
+}

@@ -1,0 +1,203 @@
+{
+  "name": "IMAP Email Attachment Processing",
+  "nodes": [
+    {
+      "name": "IMAP Email Trigger",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.1,
+      "position": [250, 300],
+      "parameters": {
+        "mailbox": "INBOX",
+        "options": {
+          "allowUnauthorizedCerts": false,
+          "forceReconnect": 10,
+          "customEmailConfig": "simple",
+          "downloadAttachments": true
+        }
+      },
+      "credentials": {
+        "imap": {
+          "id": "1",
+          "name": "IMAP Account"
+        }
+      }
+    },
+    {
+      "name": "Check for Attachments",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [450, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "1",
+              "leftValue": "={{ $json.attachments }}",
+              "rightValue": "",
+              "operator": {
+                "type": "any",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "name": "Process Each Attachment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300],
+      "parameters": {
+        "jsCode": "const attachments = $input.item.json.attachments || [];\nconst results = [];\n\nfor (const attachment of attachments) {\n  results.push({\n    filename: attachment.filename,\n    contentType: attachment.contentType,\n    size: attachment.size,\n    emailFrom: $input.item.json.from.text,\n    emailSubject: $input.item.json.subject,\n    emailDate: $input.item.json.date,\n    // Attachment data would be in attachment.content\n    hasData: !!attachment.content\n  });\n}\n\nreturn results.map(result => ({ json: result }));"
+      }
+    },
+    {
+      "name": "Filter PDF Files",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [850, 200],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "1",
+              "leftValue": "={{ $json.contentType }}",
+              "rightValue": "application/pdf",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "name": "Filter Image Files",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [850, 400],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "1",
+              "leftValue": "={{ $json.contentType }}",
+              "rightValue": "image/",
+              "operator": {
+                "type": "string",
+                "operation": "startsWith"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "name": "Log PDF Info",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 200],
+      "parameters": {
+        "jsCode": "console.log('PDF Attachment:', $input.item.json.filename);\nconsole.log('From email:', $input.item.json.emailSubject);\n\nreturn $input.item;"
+      }
+    },
+    {
+      "name": "Log Image Info",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 400],
+      "parameters": {
+        "jsCode": "console.log('Image Attachment:', $input.item.json.filename);\nconsole.log('From email:', $input.item.json.emailSubject);\n\nreturn $input.item;"
+      }
+    }
+  ],
+  "connections": {
+    "IMAP Email Trigger": {
+      "main": [
+        [
+          {
+            "node": "Check for Attachments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check for Attachments": {
+      "main": [
+        [
+          {
+            "node": "Process Each Attachment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Each Attachment": {
+      "main": [
+        [
+          {
+            "node": "Filter PDF Files",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Filter Image Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter PDF Files": {
+      "main": [
+        [
+          {
+            "node": "Log PDF Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Image Files": {
+      "main": [
+        [
+          {
+            "node": "Log Image Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "description": "Monitors IMAP mailbox, processes email attachments, and routes different file types",
+    "tags": ["email", "imap", "attachments", "files", "pdf", "images"]
+  }
+}
