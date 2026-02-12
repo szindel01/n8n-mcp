@@ -6,6 +6,7 @@ export interface DatabaseAdapter {
     readonly inTransaction: boolean;
     transaction<T>(fn: () => T): T;
     checkFTS5Support(): boolean;
+    getUnderlyingDatabase(): any;
 }
 export interface PreparedStatement {
     run(...params: any[]): RunResult;
