@@ -1,0 +1,171 @@
+{
+  "name": "Email Management - Multi-Mailbox Dashboard",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "ae68f8d7-a9e2-4e9f-8b3c-7f9d2e1c4b5a",
+      "name": "When clicking 'Execute Workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [50, 200]
+    },
+    {
+      "parameters": {
+        "resource": "workflow",
+        "operation": "getAll"
+      },
+      "id": "bf79e8a8-b0d3-4e8f-9c4d-8g9e3f2d5c6b",
+      "name": "List Email Accounts",
+      "type": "n8n-nodes-base.mcp",
+      "typeVersion": 1,
+      "position": [250, 100],
+      "credentials": {
+        "mcpConnection": "n8n-mcp"
+      }
+    },
+    {
+      "parameters": {
+        "toolName": "list_email_accounts",
+        "toolInput": {
+          "includeInactive": false
+        }
+      },
+      "id": "cg80f9b9-c1e4-5f9g-0d5e-9h0f4g3e6d7c",
+      "name": "Get Configured Accounts",
+      "type": "n8n-nodes-base.mcp",
+      "typeVersion": 1,
+      "position": [250, 100]
+    },
+    {
+      "parameters": {
+        "toolName": "get_urgent_emails",
+        "toolInput": {
+          "maxResults": 20,
+          "onlyUnread": false
+        }
+      },
+      "id": "dh91g0ca-d2f5-6g0h-1e6f-0i1g5h4f7e8d",
+      "name": "Fetch Urgent & Important Emails",
+      "type": "n8n-nodes-base.mcp",
+      "typeVersion": 1,
+      "position": [450, 100]
+    },
+    {
+      "parameters": {
+        "toolName": "search_emails",
+        "toolInput": {
+          "query": "{{ $json.query || 'is:urgent OR is:important' }}",
+          "maxResults": "{{ $json.maxResults || 50 }}",
+          "minUrgencyScore": "{{ $json.minUrgency || 0 }}"
+        }
+      },
+      "id": "ei02h1db-e3g6-7h1i-2f7g-1j2h6i5g8f9e",
+      "name": "Search Emails (Custom Query)",
+      "type": "n8n-nodes-base.mcp",
+      "typeVersion": 1,
+      "position": [450, 250]
+    },
+    {
+      "parameters": {
+        "columns": {
+          "email_accounts": {
+            "operation": "set",
+            "set": {
+              "account_id": "=id",
+              "name": "=accountName",
+              "provider": "=provider",
+              "active": "=isActive",
+              "last_sync": "=lastSyncAt"
+            }
+          },
+          "urgent_emails": {
+            "operation": "set",
+            "set": {
+              "subject": "=subject",
+              "from": "=from",
+              "account": "=accountName",
+              "urgency_score": "=urgencyScore",
+              "received": "=receivedAt",
+              "unread": "=isRead"
+            }
+          },
+          "important_emails": {
+            "operation": "set",
+            "set": {
+              "subject": "=subject",
+              "from": "=from",
+              "importance_score": "=importanceScore",
+              "has_attachments": "=hasAttachments",
+              "reason": "=importanceReason"
+            }
+          }
+        }
+      },
+      "id": "fj03i2ec-f4h7-8i2j-3g8h-2k3i7j6h0i1j",
+      "name": "Format Results",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [650, 150]
+    },
+    {
+      "parameters": {
+        "html": "<h1>📧 Email Management Dashboard</h1>\n<div style='font-family: Arial; padding: 20px;'>\n  <h2>Configured Accounts</h2>\n  <table border='1' style='border-collapse: collapse; width: 100%;'>\n    <tr style='background-color: #f0f0f0;'>\n      <th style='padding: 10px;'>Account</th>\n      <th style='padding: 10px;'>Provider</th>\n      <th style='padding: 10px;'>Status</th>\n      <th style='padding: 10px;'>Last Sync</th>\n    </tr>\n    {{ $json.accounts?.map(acc => `\n    <tr>\n      <td style='padding: 10px;'>${acc.accountName}</td>\n      <td style='padding: 10px;'>${acc.provider}</td>\n      <td style='padding: 10px;'>${acc.isActive ? '✅ Active' : '❌ Inactive'}</td>\n      <td style='padding: 10px;'>${acc.lastSyncAt || 'Never'}</td>\n    </tr>\n    `).join('') }}\n  </table>\n\n  <h2 style='margin-top: 30px;'>🚨 Urgent Emails</h2>\n  {{ $json.urgent?.length > 0 ? `\n  <table border='1' style='border-collapse: collapse; width: 100%;'>\n    <tr style='background-color: #ffe6e6;'>\n      <th style='padding: 10px;'>Subject</th>\n      <th style='padding: 10px;'>From</th>\n      <th style='padding: 10px;'>Urgency</th>\n      <th style='padding: 10px;'>Account</th>\n    </tr>\n    {{ $json.urgent.map(email => `\n    <tr>\n      <td style='padding: 10px;'>${email.subject}</td>\n      <td style='padding: 10px;'>${email.from}</td>\n      <td style='padding: 10px;'>${(email.urgencyScore * 100).toFixed(0)}%</td>\n      <td style='padding: 10px;'>${email.accountName}</td>\n    </tr>\n    `).join('') }}\n  </table>\n  ` : '<p>No urgent emails found</p>' }}\n\n  <h2 style='margin-top: 30px;'>⭐ Important Emails</h2>\n  {{ $json.important?.length > 0 ? `\n  <table border='1' style='border-collapse: collapse; width: 100%;'>\n    <tr style='background-color: #fff4e6;'>\n      <th style='padding: 10px;'>Subject</th>\n      <th style='padding: 10px;'>From</th>\n      <th style='padding: 10px;'>Importance</th>\n      <th style='padding: 10px;'>Reason</th>\n    </tr>\n    {{ $json.important.map(email => `\n    <tr>\n      <td style='padding: 10px;'>${email.subject}</td>\n      <td style='padding: 10px;'>${email.from}</td>\n      <td style='padding: 10px;'>${(email.importanceScore * 100).toFixed(0)}%</td>\n      <td style='padding: 10px;'>${email.importanceReason?.[0] || 'Auto-detected'}</td>\n    </tr>\n    `).join('') }}\n  </table>\n  ` : '<p>No important emails found</p>' }}\n</div>"
+      },
+      "id": "gk04j3fd-g5i8-9j3k-4h9i-3l4j8k7i1j2k",
+      "name": "Display HTML Results",
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1,
+      "position": [850, 150]
+    }
+  ],
+  "connections": {
+    "When clicking 'Execute Workflow'": {
+      "main": [
+        [
+          {
+            "node": "Get Configured Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Configured Accounts": {
+      "main": [
+        [
+          {
+            "node": "Fetch Urgent & Important Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Urgent & Important Emails": {
+      "main": [
+        [
+          {
+            "node": "Format Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Results": {
+      "main": [
+        [
+          {
+            "node": "Display HTML Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "timezone": "UTC"
+  }
+}

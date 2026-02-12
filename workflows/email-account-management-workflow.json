@@ -1,0 +1,98 @@
+{
+  "name": "Email Account Management - Admin Dashboard",
+  "description": "Manage email accounts: add, remove, enable/disable, update settings",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [50, 100]
+    },
+    {
+      "parameters": {
+        "toolName": "list_email_accounts",
+        "toolInput": {
+          "includeInactive": true
+        }
+      },
+      "id": "list_all_accounts",
+      "name": "List All Accounts",
+      "type": "n8n-nodes-base.mcp",
+      "typeVersion": 1,
+      "position": [250, 100]
+    },
+    {
+      "parameters": {
+        "columns": {
+          "accounts": {
+            "operation": "set",
+            "set": {
+              "id": "=id",
+              "account_name": "=accountName",
+              "email": "=email",
+              "provider": "=provider",
+              "is_active": "=isActive",
+              "last_sync": "=lastSyncAt",
+              "sync_error": "=syncError"
+            }
+          }
+        }
+      },
+      "id": "format_accounts",
+      "name": "Format Account Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [450, 100]
+    },
+    {
+      "parameters": {
+        "mode": "expressionEnabled",
+        "expression": "=[{\n  \"action\": \"update_keywords\",\n  \"account_id\": 1,\n  \"customUrgentKeywords\": [\"urgent\", \"ASAP\", \"critical\"],\n  \"customImportantKeywords\": [\"meeting\", \"proposal\"]\n}]"
+      },
+      "id": "management_actions",
+      "name": "Define Management Actions",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "expression": "={{ $json.action === 'update_keywords' }}"
+      },
+      "id": "is_update_keywords",
+      "name": "Is Update Keywords?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "toolName": "update_email_account",
+        "toolInput": {
+          "accountId": "={{ $json.account_id }}",
+          "customUrgentKeywords": "={{ $json.customUrgentKeywords }}",
+          "customImportantKeywords": "={{ $json.customImportantKeywords }}"
+        }
+      },
+      "id": "update_account",
+      "name": "Update Account Settings",
+      "type": "n8n-nodes-base.mcp",
+      "typeVersion": 1,
+      "position": [1050, 150]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "expression": "={{ $json.action === 'disable' }}"
+      },
+      "id": "is_disable",
+      "name": "Is Disable?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 250]
+    },
+    {
+      "parameters": {\n        \"toolName\": \"disable_email_account\",\n        \"toolInput\": {\n          \"accountId\": \"={{ $json.account_id }}\"\n        }\n      },\n      \"id\": \"disable_account\",\n      \"name\": \"Disable Account\",\n      \"type\": \"n8n-nodes-base.mcp\",\n      \"typeVersion\": 1,\n      \"position\": [1050, 250]\n    },\n    {\n      \"parameters\": {\n        \"mode\": \"runOnceForAllItems\",\n        \"expression\": \"={{ $json.action === 'enable' }}\"\n      },\n      \"id\": \"is_enable\",\n      \"name\": \"Is Enable?\",\n      \"type\": \"n8n-nodes-base.if\",\n      \"typeVersion\": 1,\n      \"position\": [850, 300]\n    },\n    {\n      \"parameters\": {\n        \"toolName\": \"enable_email_account\",\n        \"toolInput\": {\n          \"accountId\": \"={{ $json.account_id }}\"\n        }\n      },\n      \"id\": \"enable_account\",\n      \"name\": \"Enable Account\",\n      \"type\": \"n8n-nodes-base.mcp\",\n      \"typeVersion\": 1,\n      \"position\": [1050, 300]\n    },\n    {\n      \"parameters\": {\n        \"html\": \"<h1>📧 Email Account Management Dashboard</h1>\\n<div style='font-family: Arial; padding: 20px;'>\\n  <h2>Configured Accounts</h2>\\n  <table border='1' style='border-collapse: collapse; width: 100%;'>\\n    <tr style='background-color: #e3f2fd;'>\\n      <th style='padding: 10px;'>Account Name</th>\\n      <th style='padding: 10px;'>Email</th>\\n      <th style='padding: 10px;'>Provider</th>\\n      <th style='padding: 10px;'>Status</th>\\n      <th style='padding: 10px;'>Last Sync</th>\\n      <th style='padding: 10px;'>Sync Error</th>\\n    </tr>\\n    {{ $json.accounts.map(acc => `\\n    <tr>\\n      <td style='padding: 10px;'>${acc.account_name}</td>\\n      <td style='padding: 10px;'>${acc.email}</td>\\n      <td style='padding: 10px;'><b>${acc.provider.toUpperCase()}</b></td>\\n      <td style='padding: 10px;'>${acc.is_active ? '✅ Active' : '⚠️ Disabled'}</td>\\n      <td style='padding: 10px; font-size: 12px;'>${acc.last_sync ? new Date(acc.last_sync).toLocaleString() : 'Never'}</td>\\n      <td style='padding: 10px; color: red; font-size: 12px;'>${acc.sync_error || 'None'}</td>\\n    </tr>\\n    `).join('')}\\n  </table>\\n\\n  <h2 style='margin-top: 30px;'>Available Actions:</h2>\\n  <ul>\\n    <li>✏️ <b>Update Keywords:</b> Modify custom urgent/important keywords</li>\\n    <li>⏸️ <b>Disable Account:</b> Temporarily disable email syncing</li>\\n    <li>▶️ <b>Enable Account:</b> Re-enable disabled accounts</li>\\n    <li>🗑️ <b>Remove Account:</b> Permanently delete account</li>\\n  </ul>\\n</div>\"\n      },\n      \"id\": \"display_dashboard\",\n      \"name\": \"Display Management Dashboard\",\n      \"type\": \"n8n-nodes-base.html\",\n      \"typeVersion\": 1,\n      \"position\": [1250, 100]\n    }\n  ],\n  \"connections\": {\n    \"Start\": {\n      \"main\": [[{ \"node\": \"List All Accounts\", \"type\": \"main\", \"index\": 0 }]]\n    },\n    \"List All Accounts\": {\n      \"main\": [[{ \"node\": \"Format Account Data\", \"type\": \"main\", \"index\": 0 }]]\n    },\n    \"Format Account Data\": {\n      \"main\": [\n        [{ \"node\": \"Define Management Actions\", \"type\": \"main\", \"index\": 0 }],\n        [{ \"node\": \"Display Management Dashboard\", \"type\": \"main\", \"index\": 0 }]\n      ]\n    },\n    \"Define Management Actions\": {\n      \"main\": [[{ \"node\": \"Is Update Keywords?\", \"type\": \"main\", \"index\": 0 }]]\n    },\n    \"Is Update Keywords?\": {\n      \"main\": [\n        [{ \"node\": \"Update Account Settings\", \"type\": \"main\", \"index\": 0 }],\n        [{ \"node\": \"Is Disable?\", \"type\": \"main\", \"index\": 0 }]\n      ]\n    },\n    \"Is Disable?\": {\n      \"main\": [\n        [{ \"node\": \"Disable Account\", \"type\": \"main\", \"index\": 0 }],\n        [{ \"node\": \"Is Enable?\", \"type\": \"main\", \"index\": 0 }]\n      ]\n    },\n    \"Is Enable?\": {\n      \"main\": [\n        [{ \"node\": \"Enable Account\", \"type\": \"main\", \"index\": 0 }],\n        [{ \"node\": \"Display Management Dashboard\", \"type\": \"main\", \"index\": 0 }]\n      ]\n    }\n  },\n  \"active\": false\n}

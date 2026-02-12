@@ -1,0 +1,132 @@
+{
+  "name": "Email Setup - Add Gmail & IMAP Accounts",
+  "description": "Setup workflow to configure email accounts (Gmail OAuth + IMAP)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger",
+      "name": "Setup Email Accounts",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [50, 100]
+    },
+    {
+      "parameters": {
+        "mode": "immediate",
+        "items": "={{[\n  {\n    \"accountName\": \"Personal Gmail\",\n    \"email\": \"your-email@gmail.com\",\n    \"provider\": \"gmail\",\n    \"refreshToken\": \"YOUR_GMAIL_REFRESH_TOKEN\",\n    \"customUrgentKeywords\": [\"urgent\", \"ASAP\", \"critical\", \"emergency\"],\n    \"customImportantKeywords\": [\"meeting\", \"contract\", \"proposal\", \"approval\"]\n  },\n  {\n    \"accountName\": \"Work Outlook\",\n    \"email\": \"name@company.com\",\n    \"provider\": \"imap\",\n    \"host\": \"outlook.office365.com\",\n    \"port\": 993,\n    \"username\": \"name@company.com\",\n    \"password\": \"YOUR_APP_PASSWORD\",\n    \"defaultMailbox\": \"INBOX\",\n    \"customUrgentKeywords\": [\"urgent\", \"deadline\", \"immediately\"]\n  }\n]}}"
+      },
+      "id": "accounts_list",
+      "name": "Account Configuration List",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [250, 100]
+    },
+    {
+      "parameters": {
+        "toolName": "add_email_account",
+        "toolInput": {
+          "accountName": "={{ $json.accountName }}",
+          "email": "={{ $json.email }}",
+          "provider": "={{ $json.provider }}",
+          "refreshToken": "={{ $json.refreshToken }}",
+          "host": "={{ $json.host }}",
+          "port": "={{ $json.port }}",
+          "username": "={{ $json.username }}",
+          "password": "={{ $json.password }}",
+          "defaultMailbox": "={{ $json.defaultMailbox }}",
+          "customUrgentKeywords": "={{ $json.customUrgentKeywords }}",
+          "customImportantKeywords": "={{ $json.customImportantKeywords }}"
+        }
+      },
+      "id": "add_account",
+      "name": "Add Email Account (MCP Tool)",
+      "type": "n8n-nodes-base.mcp",
+      "typeVersion": 1,
+      "position": [450, 100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "comparator": "notEmpty",
+              "value1": "={{ $json.success }}"
+            }
+          ]
+        }
+      },
+      "id": "check_success",
+      "name": "Account Added Successfully?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 100]
+    },
+    {
+      "parameters": {
+        "message": "✅ Account Added: {{ $json.accountName }} ({{ $json.provider }})"
+      },
+      "id": "success_msg",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.n8nWorkflowTriggerHelper",
+      "typeVersion": 1,
+      "position": [850, 50]
+    },
+    {
+      "parameters": {
+        "message": "❌ Error adding account: {{ $json.message }}"
+      },
+      "id": "error_msg",
+      "name": "Log Error",
+      "type": "n8n-nodes-base.n8nWorkflowTriggerHelper",
+      "typeVersion": 1,
+      "position": [850, 150]
+    },
+    {
+      "parameters": {
+        "toolName": "list_email_accounts",
+        "toolInput": {
+          "includeInactive": false
+        }
+      },
+      "id": "list_accounts",
+      "name": "List All Accounts",
+      "type": "n8n-nodes-base.mcp",
+      "typeVersion": 1,
+      "position": [1050, 100]
+    },
+    {
+      "parameters": {
+        "html": "<h1>✅ Email Accounts Configuration Complete</h1>\n<div style='font-family: Arial; padding: 20px;'>\n  <h2>Configured Accounts:</h2>\n  <table border='1' style='border-collapse: collapse; width: 100%;'>\n    <tr style='background-color: #e8f5e9;'>\n      <th style='padding: 10px;'>Account Name</th>\n      <th style='padding: 10px;'>Email</th>\n      <th style='padding: 10px;'>Provider</th>\n      <th style='padding: 10px;'>Status</th>\n    </tr>\n    {{ $json.accounts.map(acc => `\n    <tr>\n      <td style='padding: 10px;'>${acc.accountName}</td>\n      <td style='padding: 10px;'>${acc.email}</td>\n      <td style='padding: 10px;'>${acc.provider.toUpperCase()}</td>\n      <td style='padding: 10px;'>${acc.isActive ? '✅ Active' : '❌ Inactive'}</td>\n    </tr>\n    `).join('') }}\n  </table>\n  <p style='margin-top: 20px; color: green;'><b>✓ All accounts ready for email search and management</b></p>\n</div>"
+      },
+      "id": "display_result",
+      "name": "Display Setup Results",
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1,
+      "position": [1250, 100]
+    }
+  ],
+  "connections": {
+    "Setup Email Accounts": {
+      "main": [[{ "node": "Account Configuration List", "type": "main", "index": 0 }]]
+    },
+    "Account Configuration List": {
+      "main": [[{ "node": "Add Email Account (MCP Tool)", "type": "main", "index": 0 }]]
+    },
+    "Add Email Account (MCP Tool)": {
+      "main": [[{ "node": "Account Added Successfully?", "type": "main", "index": 0 }]]
+    },
+    "Account Added Successfully?": {
+      "main": [
+        [{ "node": "Log Success", "type": "main", "index": 0 }],
+        [{ "node": "Log Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Log Success": {
+      "main": [[{ "node": "List All Accounts", "type": "main", "index": 0 }]]
+    },
+    "List All Accounts": {
+      "main": [[{ "node": "Display Setup Results", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false
+}

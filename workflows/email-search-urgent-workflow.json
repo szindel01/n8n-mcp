@@ -1,0 +1,154 @@
+{
+  "name": "Email Search - Find Urgent & Important Emails",
+  "description": "Search and classify urgent/important emails across all accounts",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyMinute",
+              "minute": 5
+            }
+          ]
+        }
+      },
+      "id": "schedule_trigger",
+      "name": "Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [50, 100]
+    },
+    {
+      "parameters": {
+        "toolName": "get_urgent_emails",
+        "toolInput": {
+          "maxResults": 20,
+          "onlyUnread": false
+        }
+      },
+      "id": "fetch_urgent",
+      "name": "Fetch Urgent & Important Emails",
+      "type": "n8n-nodes-base.mcp",
+      "typeVersion": 1,
+      "position": [250, 100]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "expression": "={{ Object.keys($json).length > 0 ? true : false }}"
+      },
+      "id": "check_results",
+      "name": "Any Results?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 100]
+    },
+    {
+      "parameters": {
+        "columns": {
+          "urgent_emails": {
+            "operation": "set",
+            "set": {
+              "id": "=id",
+              "subject": "=subject",
+              "from": "=from",
+              "account": "=accountName",
+              "snippet": "=snippet",
+              "urgency_score": "=urgencyScore",
+              "received_at": "=receivedAt",
+              "is_read": "=isRead",
+              "has_attachments": "=hasAttachments"
+            }
+          }
+        }
+      },
+      "id": "format_urgent",
+      "name": "Format Urgent Emails",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [650, 50]
+    },
+    {
+      "parameters": {
+        "columns": {
+          "important_emails": {
+            "operation": "set",
+            "set": {
+              "id": "=id",
+              "subject": "=subject",
+              "from": "=from",
+              "importance_score": "=importanceScore",
+              "reason": "=importanceReason",
+              "has_attachments": "=hasAttachments",
+              "received_at": "=receivedAt"
+            }
+          }
+        }
+      },
+      "id": "format_important",
+      "name": "Format Important Emails",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [650, 150]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare notification message\nconst urgent = $input.all()[0].urgent || [];\nconst important = $input.all()[0].important || [];\n\nlet message = '📧 Email Report\\n\\n';\n\nif (urgent.length > 0) {\n  message += `🚨 URGENT (${urgent.length}):\\n`;\n  urgent.slice(0, 5).forEach(email => {\n    message += `  • ${email.subject} (${(email.urgencyScore * 100).toFixed(0)}%)\\n`;\n  });\n  message += '\\n';\n}\n\nif (important.length > 0) {\n  message += `⭐ IMPORTANT (${important.length}):\\n`;\n  important.slice(0, 5).forEach(email => {\n    message += `  • ${email.subject} (${(email.importanceScore * 100).toFixed(0)}%)\\n`;\n  });\n}\n\nreturn { message, urgent_count: urgent.length, important_count: important.length };"
+      },
+      "id": "prepare_message",
+      "name": "Prepare Summary Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [850, 100]
+    },
+    {
+      "parameters": {
+        "channel": "#emails",
+        "text": "{{ $json.message }}"
+      },
+      "id": "slack_notify",
+      "name": "Send Slack Notification",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [1050, 100]
+    },
+    {
+      "parameters": {
+        "html": "<h1>📧 Urgent & Important Emails Report</h1>\n<div style='font-family: Arial; padding: 20px;'>\n  <div style='background-color: #ffe6e6; padding: 15px; border-radius: 5px; margin-bottom: 20px;'>\n    <h2>🚨 Urgent Emails ({{ $json.urgent_count }})</h2>\n    {{ $json.urgent && $json.urgent.length > 0 ? `\n    <table border='1' style='border-collapse: collapse; width: 100%; margin-top: 10px;'>\n      <tr style='background-color: #ffcccc;'>\n        <th style='padding: 10px; text-align: left;'>Subject</th>\n        <th style='padding: 10px;'>From</th>\n        <th style='padding: 10px;'>Score</th>\n        <th style='padding: 10px;'>Account</th>\n        <th style='padding: 10px;'>Unread</th>\n      </tr>\n      {{ $json.urgent.map(email => `\n      <tr>\n        <td style='padding: 10px;'>${email.subject}</td>\n        <td style='padding: 10px;'>${email.from.substring(0, 30)}</td>\n        <td style='padding: 10px;'>${(email.urgency_score * 100).toFixed(0)}%</td>\n        <td style='padding: 10px;'>${email.account}</td>\n        <td style='padding: 10px;'>${!email.is_read ? '✉️' : '📖'}</td>\n      </tr>\n      `).join('') }}\n    </table>\n    ` : '<p>No urgent emails</p>' }}\n  </div>\n\n  <div style='background-color: #fff4e6; padding: 15px; border-radius: 5px;'>\n    <h2>⭐ Important Emails ({{ $json.important_count }})</h2>\n    {{ $json.important && $json.important.length > 0 ? `\n    <table border='1' style='border-collapse: collapse; width: 100%; margin-top: 10px;'>\n      <tr style='background-color: #ffe699;'>\n        <th style='padding: 10px; text-align: left;'>Subject</th>\n        <th style='padding: 10px;'>From</th>\n        <th style='padding: 10px;'>Score</th>\n        <th style='padding: 10px;'>Reason</th>\n        <th style='padding: 10px;'>Attachments</th>\n      </tr>\n      {{ $json.important.map(email => `\n      <tr>\n        <td style='padding: 10px;'>${email.subject}</td>\n        <td style='padding: 10px;'>${email.from.substring(0, 30)}</td>\n        <td style='padding: 10px;'>${(email.importance_score * 100).toFixed(0)}%</td>\n        <td style='padding: 10px;'>${email.reason?.[0] || 'Auto-detected'}</td>\n        <td style='padding: 10px;'>${email.has_attachments ? '📎' : '—'}</td>\n      </tr>\n      `).join('') }}\n    </table>\n    ` : '<p>No important emails</p>' }}\n  </div>\n\n  <p style='margin-top: 30px; color: #666; font-size: 12px;'>Last updated: {{ new Date().toLocaleString() }}</p>\n</div>"
+      },
+      "id": "display_report",
+      "name": "Display Detailed Report",
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1,
+      "position": [1250, 100]
+    }
+  ],
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [[{ "node": "Fetch Urgent & Important Emails", "type": "main", "index": 0 }]]
+    },
+    "Fetch Urgent & Important Emails": {
+      "main": [[{ "node": "Any Results?", "type": "main", "index": 0 }]]
+    },
+    "Any Results?": {
+      "main": [
+        [{ "node": "Format Urgent Emails", "type": "main", "index": 0 }],
+        [{ "node": "Format Important Emails", "type": "main", "index": 0 }]
+      ]
+    },
+    "Format Urgent Emails": {
+      "main": [[{ "node": "Prepare Summary Message", "type": "main", "index": 0 }]]
+    },
+    "Format Important Emails": {
+      "main": [[{ "node": "Prepare Summary Message", "type": "main", "index": 0 }]]
+    },
+    "Prepare Summary Message": {
+      "main": [
+        [{ "node": "Send Slack Notification", "type": "main", "index": 0 }],
+        [{ "node": "Display Detailed Report", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false
+}

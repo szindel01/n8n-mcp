@@ -1,0 +1,102 @@
+{
+  "name": "Email Search - Custom Query Builder",
+  "description": "Advanced email search with custom queries and filters",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [50, 100]
+    },
+    {
+      "parameters": {
+        "mode": "immediate",
+        "items": "={\"query\": \"subject:meeting\", \"maxResults\": 50, \"minUrgency\": 0}"
+      },
+      "id": "search_params",
+      "name": "Set Search Parameters",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [250, 100]
+    },
+    {
+      "parameters": {
+        "toolName": "search_emails",
+        "toolInput": {
+          "query": "={{ $json.query }}",
+          "maxResults": "={{ $json.maxResults }}",
+          "minUrgencyScore": "={{ $json.minUrgency }}"
+        }
+      },
+      "id": "search_emails",
+      "name": "Execute Email Search",
+      "type": "n8n-nodes-base.mcp",
+      "typeVersion": 1,
+      "position": [450, 100]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "expression": "={{ $json.results && $json.results.length > 0 }}"
+      },
+      "id": "check_results",
+      "name": "Any Results?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 100]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Group results by account\nconst results = $json.results || [];\nconst grouped = {};\n\nresults.forEach(email => {\n  const account = email.accountName || 'Unknown';\n  if (!grouped[account]) {\n    grouped[account] = [];\n  }\n  grouped[account].push({\n    subject: email.subject,\n    from: email.from,\n    snippet: email.snippet?.substring(0, 100) + '...',\n    urgency: (email.urgencyScore * 100).toFixed(0),\n    importance: (email.importanceScore * 100).toFixed(0),\n    unread: !email.isRead,\n    has_attachments: email.hasAttachments,\n    received: new Date(email.receivedAt).toLocaleDateString()\n  });\n});\n\nreturn { grouped_results: grouped, total_count: results.length };"
+      },
+      "id": "process_results",
+      "name": "Process & Group Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [850, 50]
+    },
+    {
+      "parameters": {
+        "html": "<h1>🔍 Email Search Results</h1>\n<div style='font-family: Arial; padding: 20px;'>\n  <p style='font-size: 18px; margin-bottom: 20px;'>\n    <b>Query:</b> <code style='background-color: #f0f0f0; padding: 5px;'>{{ $json.query }}</code>\n  </p>\n  <p style='font-size: 16px; color: #666;'><b>Total Found: {{ $json.total_count }} emails</b></p>\n\n  {{ Object.entries($json.grouped_results || {}).map(([account, emails]) => `\n  <div style='margin-top: 30px; padding: 15px; background-color: #f9f9f9; border-left: 4px solid #2196F3;'>\n    <h2 style='margin-top: 0;'>📧 ${account}</h2>\n    <table border='1' style='border-collapse: collapse; width: 100%;'>\n      <tr style='background-color: #e3f2fd;'>\n        <th style='padding: 10px; text-align: left;'>Subject</th>\n        <th style='padding: 10px;'>From</th>\n        <th style='padding: 10px;'>Urgency</th>\n        <th style='padding: 10px;'>Importance</th>\n        <th style='padding: 10px;'>Date</th>\n        <th style='padding: 10px;'>Unread</th>\n      </tr>\n      {{ emails.map(email => `\n      <tr>\n        <td style='padding: 10px;'>${email.subject}</td>\n        <td style='padding: 10px;'>${email.from.substring(0, 25)}</td>\n        <td style='padding: 10px;'><span style='color: ${email.urgency > 30 ? 'red' : 'gray'};'>⬤ ${email.urgency}%</span></td>\n        <td style='padding: 10px;'><span style='color: ${email.importance > 30 ? 'orange' : 'gray'};'>⬤ ${email.importance}%</span></td>\n        <td style='padding: 10px; font-size: 12px;'>${email.received}</td>\n        <td style='padding: 10px;'>${email.unread ? '✉️' : '📖'}</td>\n      </tr>\n      `).join('') }}\n    </table>\n  </div>\n  `).join('') }}\n</div>"
+      },
+      "id": "display_results",
+      "name": "Display Search Results",
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1,
+      "position": [1050, 100]
+    },
+    {
+      "parameters": {
+        "html": "<h1>No Results</h1>\n<div style='font-family: Arial; padding: 20px;'>\n  <p>No emails found matching your query.</p>\n  <p>Try adjusting your search criteria:</p>\n  <ul>\n    <li><code>from:john@example.com</code> - Search by sender</li>\n    <li><code>subject:meeting</code> - Search by subject</li>\n    <li><code>is:unread</code> - Only unread emails</li>\n    <li><code>has:attachments</code> - Only with attachments</li>\n  </ul>\n</div>"
+      },
+      "id": "no_results",
+      "name": "Display No Results",
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1,
+      "position": [1050, 200]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{ "node": "Set Search Parameters", "type": "main", "index": 0 }]]
+    },
+    "Set Search Parameters": {
+      "main": [[{ "node": "Execute Email Search", "type": "main", "index": 0 }]]
+    },
+    "Execute Email Search": {
+      "main": [[{ "node": "Any Results?", "type": "main", "index": 0 }]]
+    },
+    "Any Results?": {
+      "main": [
+        [{ "node": "Process & Group Results", "type": "main", "index": 0 }],
+        [{ "node": "Display No Results", "type": "main", "index": 0 }]
+      ]
+    },
+    "Process & Group Results": {
+      "main": [[{ "node": "Display Search Results", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false
+}
