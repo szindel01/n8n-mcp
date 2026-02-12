@@ -182,6 +182,9 @@ class BetterSQLiteAdapter {
             return false;
         }
     }
+    getUnderlyingDatabase() {
+        return this.db;
+    }
 }
 class SQLJSAdapter {
     constructor(db, dbPath) {
@@ -249,6 +252,9 @@ class SQLJSAdapter {
         catch (error) {
             return false;
         }
+    }
+    getUnderlyingDatabase() {
+        return this.db;
     }
     scheduleSave() {
         if (this.saveTimer) {

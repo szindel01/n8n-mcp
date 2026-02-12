@@ -34,7 +34,8 @@ export class SQLiteStorageService {
         } catch {
           return false;
         }
-      }
+      },
+      getUnderlyingDatabase: () => db
     };
     
     // Initialize schema

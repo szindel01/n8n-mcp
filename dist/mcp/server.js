@@ -44,6 +44,8 @@ const fs_1 = require("fs");
 const path_1 = __importDefault(require("path"));
 const tools_1 = require("./tools");
 const tools_n8n_manager_1 = require("./tools-n8n-manager");
+const email_tools_1 = require("./email-tools");
+const email_tools_handlers_1 = require("./email-tools-handlers");
 const tools_n8n_friendly_1 = require("./tools-n8n-friendly");
 const workflow_examples_1 = require("./workflow-examples");
 const logger_1 = require("../utils/logger");
@@ -79,6 +81,7 @@ class N8NDocumentationMCPServer {
         this.previousToolTimestamp = Date.now();
         this.earlyLogger = null;
         this.disabledToolsCache = null;
+        this.emailToolsHandlers = null;
         this.dbHealthChecked = false;
         this.instanceContext = instanceContext;
         this.earlyLogger = earlyLogger || null;
@@ -186,6 +189,8 @@ class N8NDocumentationMCPServer {
             logger_1.logger.debug('Node repository initialized');
             this.templateService = new template_service_1.TemplateService(this.db);
             logger_1.logger.debug('Template service initialized');
+            this.emailToolsHandlers = (0, email_tools_handlers_1.createEmailToolsHandlers)(this.db.getUnderlyingDatabase());
+            logger_1.logger.debug('Email tools handlers initialized');
             enhanced_config_validator_1.EnhancedConfigValidator.initializeSimilarityServices(this.repository);
             logger_1.logger.debug('Similarity services initialized');
             if (this.earlyLogger) {
@@ -375,6 +380,9 @@ class N8NDocumentationMCPServer {
                     disabledToolsCount: disabledTools.size
                 });
             }
+            const enabledEmailTools = email_tools_1.emailManagementTools.filter(tool => !disabledTools.has(tool.name));
+            tools.push(...enabledEmailTools);
+            logger_1.logger.debug(`Added ${enabledEmailTools.length} email management tools`);
             if (disabledTools.size > 0) {
                 const totalAvailableTools = tools_1.n8nDocumentationToolsFinal.length + (shouldIncludeManagementTools ? tools_n8n_manager_1.n8nManagementTools.length : 0);
                 logger_1.logger.debug(`Filtered ${disabledTools.size} disabled tools, ${tools.length}/${totalAvailableTools} tools available`);
@@ -931,6 +939,46 @@ class N8NDocumentationMCPServer {
                 if (!this.repository)
                     throw new Error('Repository not initialized');
                 return n8nHandlers.handleDeployTemplate(args, this.templateService, this.repository, this.instanceContext);
+            case 'add_email_account':
+                await this.ensureInitialized();
+                if (!this.emailToolsHandlers)
+                    throw new Error('Email tools not initialized');
+                return this.emailToolsHandlers.addEmailAccount(args);
+            case 'remove_email_account':
+                await this.ensureInitialized();
+                if (!this.emailToolsHandlers)
+                    throw new Error('Email tools not initialized');
+                return this.emailToolsHandlers.removeEmailAccount(args);
+            case 'list_email_accounts':
+                await this.ensureInitialized();
+                if (!this.emailToolsHandlers)
+                    throw new Error('Email tools not initialized');
+                return this.emailToolsHandlers.listEmailAccounts(args);
+            case 'search_emails':
+                await this.ensureInitialized();
+                if (!this.emailToolsHandlers)
+                    throw new Error('Email tools not initialized');
+                return this.emailToolsHandlers.searchEmails(args);
+            case 'get_urgent_emails':
+                await this.ensureInitialized();
+                if (!this.emailToolsHandlers)
+                    throw new Error('Email tools not initialized');
+                return this.emailToolsHandlers.getUrgentEmails(args);
+            case 'disable_email_account':
+                await this.ensureInitialized();
+                if (!this.emailToolsHandlers)
+                    throw new Error('Email tools not initialized');
+                return this.emailToolsHandlers.disableEmailAccount(args);
+            case 'enable_email_account':
+                await this.ensureInitialized();
+                if (!this.emailToolsHandlers)
+                    throw new Error('Email tools not initialized');
+                return this.emailToolsHandlers.enableEmailAccount(args);
+            case 'update_email_account':
+                await this.ensureInitialized();
+                if (!this.emailToolsHandlers)
+                    throw new Error('Email tools not initialized');
+                return this.emailToolsHandlers.updateEmailAccount(args);
             default:
                 throw new Error(`Unknown tool: ${name}`);
         }

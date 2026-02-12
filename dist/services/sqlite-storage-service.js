@@ -26,7 +26,8 @@ class SQLiteStorageService {
                 catch {
                     return false;
                 }
-            }
+            },
+            getUnderlyingDatabase: () => db
         };
         this.initializeSchema();
     }

@@ -146,6 +146,86 @@ ORDER BY node_type, rank;
 -- See template-repository.ts initializeFTS5() method
 -- Node FTS5 table (nodes_fts) is created above during schema initialization
 
+-- Email accounts table for multi-mailbox management
+-- Stores credentials for Gmail and IMAP accounts
+CREATE TABLE IF NOT EXISTS email_accounts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_name TEXT NOT NULL UNIQUE,           -- User-friendly name (e.g., "Personal Gmail", "Work IMAP")
+  email TEXT NOT NULL,                          -- Email address
+  provider TEXT NOT NULL CHECK(provider IN ('gmail', 'imap')), -- Email provider type
+
+  -- Provider-specific credentials (encrypted in production)
+  provider_config TEXT NOT NULL,                -- JSON: {refreshToken, accessToken} for Gmail or {host, port, username, password} for IMAP
+
+  -- Account metadata
+  is_active INTEGER DEFAULT 1,                  -- 1 = active, 0 = disabled
+  last_sync_at DATETIME,                        -- Last time emails were synced
+  sync_error TEXT,                              -- Error message from last sync (if any)
+
+  -- Filtering & Organization
+  default_mailbox TEXT,                         -- Default mailbox for searches (e.g., "INBOX")
+  include_sent INTEGER DEFAULT 0,               -- 1 = include sent items
+  include_archived INTEGER DEFAULT 0,           -- 1 = include archived items
+
+  -- Importance detection settings
+  auto_detect_priority INTEGER DEFAULT 1,       -- 1 = auto-detect urgent/important
+  custom_urgent_keywords TEXT,                  -- JSON array of custom urgent keywords
+  custom_important_keywords TEXT,               -- JSON array of custom important keywords
+
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for email accounts
+CREATE INDEX IF NOT EXISTS idx_email_accounts_provider ON email_accounts(provider);
+CREATE INDEX IF NOT EXISTS idx_email_accounts_active ON email_accounts(is_active);
+CREATE INDEX IF NOT EXISTS idx_email_accounts_email ON email_accounts(email);
+
+-- Email search cache table for performance optimization
+-- Stores search results to reduce API calls to email providers
+CREATE TABLE IF NOT EXISTS email_search_results (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL,                  -- Foreign key to email_accounts
+  search_query TEXT NOT NULL,                   -- Search criteria (JSON)
+
+  -- Email metadata
+  message_id TEXT NOT NULL,                     -- Provider-specific message ID
+  subject TEXT,                                 -- Email subject
+  sender TEXT,                                  -- From address
+  recipients TEXT,                              -- JSON array of recipients
+
+  -- Content & Classification
+  snippet TEXT,                                 -- First 200 chars of email body
+  labels TEXT,                                  -- JSON array of labels/tags from provider
+
+  -- Importance classification
+  is_urgent INTEGER DEFAULT 0,                  -- 1 = marked as urgent/high priority
+  is_important INTEGER DEFAULT 0,               -- 1 = marked as important
+  urgency_score REAL DEFAULT 0.0,               -- Score from 0.0 to 1.0
+  importance_score REAL DEFAULT 0.0,            -- Score from 0.0 to 1.0
+  importance_reason TEXT,                       -- Reason for importance classification (JSON)
+
+  -- Date tracking
+  received_at DATETIME,                         -- Email received date
+  cached_at DATETIME DEFAULT CURRENT_TIMESTAMP, -- When we cached this result
+
+  -- Cache validity
+  is_read INTEGER DEFAULT 0,                    -- Email read status (from provider)
+  has_attachments INTEGER DEFAULT 0,            -- Has attachments flag
+
+  FOREIGN KEY (account_id) REFERENCES email_accounts(id) ON DELETE CASCADE,
+  UNIQUE(account_id, message_id)
+);
+
+-- Indexes for email search results
+CREATE INDEX IF NOT EXISTS idx_search_results_account ON email_search_results(account_id);
+CREATE INDEX IF NOT EXISTS idx_search_results_urgent ON email_search_results(is_urgent);
+CREATE INDEX IF NOT EXISTS idx_search_results_important ON email_search_results(is_important);
+CREATE INDEX IF NOT EXISTS idx_search_results_urgency_score ON email_search_results(urgency_score DESC);
+CREATE INDEX IF NOT EXISTS idx_search_results_importance_score ON email_search_results(importance_score DESC);
+CREATE INDEX IF NOT EXISTS idx_search_results_received_at ON email_search_results(received_at DESC);
+CREATE INDEX IF NOT EXISTS idx_search_results_cached_at ON email_search_results(cached_at);
+
 -- Node versions table for tracking all available versions of each node
 -- Enables version upgrade detection and migration
 CREATE TABLE IF NOT EXISTS node_versions (

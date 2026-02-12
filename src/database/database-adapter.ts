@@ -14,6 +14,7 @@ export interface DatabaseAdapter {
   readonly inTransaction: boolean;
   transaction<T>(fn: () => T): T;
   checkFTS5Support(): boolean;
+  getUnderlyingDatabase(): any;
 }
 
 export interface PreparedStatement {
@@ -225,6 +226,10 @@ class BetterSQLiteAdapter implements DatabaseAdapter {
       return false;
     }
   }
+
+  getUnderlyingDatabase(): any {
+    return this.db;
+  }
 }
 
 /**
@@ -333,7 +338,11 @@ class SQLJSAdapter implements DatabaseAdapter {
       return false;
     }
   }
-  
+
+  getUnderlyingDatabase(): any {
+    return this.db;
+  }
+
   private scheduleSave(): void {
     if (this.saveTimer) {
       clearTimeout(this.saveTimer);
