@@ -1,0 +1,84 @@
+{
+  "name": "Email Management - Complete Setup & Orchestration",
+  "description": "Master workflow: Setup, configure, monitor and manage all email accounts",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger_manual",
+      "name": "🚀 Start Complete Setup",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [50, 100]
+    },
+    {
+      "parameters": {
+        "mode": "immediate",
+        "items": "={\n  \"setupMode\": \"complete\",\n  \"accounts\": [\n    {\n      \"accountName\": \"Personal Gmail\",\n      \"email\": \"your-email@gmail.com\",\n      \"provider\": \"gmail\",\n      \"refreshToken\": \"YOUR_GMAIL_REFRESH_TOKEN\",\n      \"customUrgentKeywords\": [\"urgent\", \"ASAP\", \"critical\", \"emergency\", \"immediate\"],\n      \"customImportantKeywords\": [\"meeting\", \"contract\", \"proposal\", \"approval\", \"decision\"]\n    },\n    {\n      \"accountName\": \"Work Outlook\",\n      \"email\": \"name@company.com\",\n      \"provider\": \"imap\",\n      \"host\": \"outlook.office365.com\",\n      \"port\": 993,\n      \"username\": \"name@company.com\",\n      \"password\": \"YOUR_APP_PASSWORD\",\n      \"defaultMailbox\": \"INBOX\",\n      \"customUrgentKeywords\": [\"urgent\", \"deadline\", \"immediately\"],\n      \"customImportantKeywords\": [\"budget\", \"strategy\", \"board\"]\n    }\n  ],\n  \"searchQueries\": [\n    {\"name\": \"Urgent\", \"query\": \"is:urgent\", \"maxResults\": 20},\n    {\"name\": \"Important\", \"query\": \"is:important\", \"maxResults\": 20},\n    {\"name\": \"Unread\", \"query\": \"is:unread\", \"maxResults\": 50},\n    {\"name\": \"With Attachments\", \"query\": \"has:attachments\", \"maxResults\": 30}\n  ]\n}"
+      },
+      "id": "config_setup",
+      "name": "📋 Define Complete Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [250, 100]
+    },
+    {
+      "parameters": {
+        "html": "<div style='font-family: Arial; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px;'>\n  <h1 style='margin: 0; font-size: 28px;'>📧 Email Management Setup - In Progress</h1>\n  <p style='margin: 10px 0; font-size: 16px;'>Configuring {{ $json.accounts.length }} email accounts...</p>\n  <hr style='border: 1px solid rgba(255,255,255,0.3); margin: 15px 0;'>\n  <div style='background: rgba(0,0,0,0.2); padding: 15px; border-radius: 5px;'>\n    <h3>📝 Configuration Summary:</h3>\n    {{ $json.accounts.map((acc, i) => `\n    <div style='margin: 10px 0;'>\n      <strong>${i+1}. ${acc.accountName}</strong><br/>\n      <span style='color: #ddd;'>Provider: ${acc.provider.toUpperCase()} | Email: ${acc.email}</span>\n    </div>\n    `).join('') }}\n  </div>\n  <div style='margin-top: 15px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 5px;'>\n    <h3>🔍 Search Queries to Execute:</h3>\n    {{ $json.searchQueries.map(q => `<span style='display: inline-block; background: rgba(255,255,255,0.2); padding: 5px 10px; margin: 3px; border-radius: 3px;'>${q.name}</span>`).join('') }}\n  </div>\n</div>"
+      },
+      "id": "display_progress_start",
+      "name": "Display: Setup Starting",
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1,
+      "position": [450, 100]
+    },
+    {
+      "parameters": {
+        "toolName": "add_email_account",
+        "toolInput": {
+          "accountName": "={{ $json.accountName }}",
+          "email": "={{ $json.email }}",
+          "provider": "={{ $json.provider }}",
+          "refreshToken": "={{ $json.refreshToken }}",
+          "host": "={{ $json.host }}",
+          "port": "={{ $json.port }}",
+          "username": "={{ $json.username }}",
+          "password": "={{ $json.password }}",
+          "defaultMailbox": "={{ $json.defaultMailbox }}",
+          "customUrgentKeywords": "={{ $json.customUrgentKeywords }}",
+          "customImportantKeywords": "={{ $json.customImportantKeywords }}"
+        }
+      },
+      "id": "add_account_loop",
+      "name": "📧 Add Email Account (Loop)",
+      "type": "n8n-nodes-base.mcp",
+      "typeVersion": 1,
+      "position": [650, 100]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect all added accounts\nconst added = $input.all();\nreturn {\n  added_count: added.length,\n  accounts: added.map(acc => ({\n    id: acc.id,\n    name: acc.accountName,\n    email: acc.email,\n    provider: acc.provider,\n    success: acc.success\n  }))\n};"
+      },
+      "id": "aggregate_added_accounts",
+      "name": "Aggregate Added Accounts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [850, 100]
+    },
+    {
+      "parameters": {
+        "toolName": "list_email_accounts",
+        "toolInput": {
+          "includeInactive": false
+        }
+      },
+      "id": "list_configured_accounts",
+      "name": "✅ List All Configured Accounts",
+      "type": "n8n-nodes-base.mcp",
+      "typeVersion": 1,
+      "position": [1050, 100]
+    },
+    {
+      "parameters": {
+        "toolName": "get_urgent_emails",
+        "toolInput": {
+          "maxResults": 20,\n          \"onlyUnread\": false\n        }\n      },\n      \"id\": \"fetch_urgent_emails\",\n      \"name\": \"🚨 Fetch Urgent Emails\",\n      \"type\": \"n8n-nodes-base.mcp\",\n      \"typeVersion\": 1,\n      \"position\": [1250, 50]\n    },\n    {\n      \"parameters\": {\n        \"jsCode\": \"// Format urgent emails\nconst urgent = $json.urgent || [];\nconst important = $json.important || [];\n\nconst formatted = {\n  urgent_count: urgent.length,\n  important_count: important.length,\n  urgent_list: urgent.slice(0, 10).map(e => ({\n    subject: e.subject,\n    from: e.from,\n    urgency_score: (e.urgencyScore * 100).toFixed(0),\n    account: e.accountName,\n    unread: !e.isRead\n  })),\n  important_list: important.slice(0, 10).map(e => ({\n    subject: e.subject,\n    from: e.from,\n    importance_score: (e.importanceScore * 100).toFixed(0),\n    reason: e.importanceReason?.[0]\n  }))\n};\n\nreturn formatted;\"\n      },\n      \"id\": \"format_emails\",\n      \"name\": \"Format Email Data\",\n      \"type\": \"n8n-nodes-base.code\",\n      \"typeVersion\": 1,\n      \"position\": [1250, 150]\n    },\n    {\n      \"parameters\": {\n        \"mode\": \"expressionEnabled\",\n        \"expression\": \"=[\\n  {\\n    \\\"name\\\": \\\"Urgent Search\\\",\\n    \\\"query\\\": \\\"is:urgent\\\",\\n    \\\"maxResults\\\": 20,\\n    \\\"minUrgency\\\": 0.6\\n  },\\n  {\\n    \\\"name\\\": \\\"Important Search\\\",\\n    \\\"query\\\": \\\"is:important\\\",\\n    \\\"maxResults\\\": 20,\\n    \\\"minUrgency\\\": 0\\n  },\\n  {\\n    \\\"name\\\": \\\"Unread Emails\\\",\\n    \\\"query\\\": \\\"is:unread\\\",\\n    \\\"maxResults\\\": 50,\\n    \\\"minUrgency\\\": 0\\n  },\\n  {\\n    \\\"name\\\": \\\"Recent with Attachments\\\",\\n    \\\"query\\\": \\\"has:attachments after:2025-02-10\\\",\\n    \\\"maxResults\\\": 30,\\n    \\\"minUrgency\\\": 0\\n  }\\n]\"\n      },\n      \"id\": \"define_searches\",\n      \"name\": \"Define Search Queries\",\n      \"type\": \"n8n-nodes-base.set\",\n      \"typeVersion\": 1,\n      \"position\": [1250, 250]\n    },\n    {\n      \"parameters\": {\n        \"toolName\": \"search_emails\",\n        \"toolInput\": {\n          \"query\": \"={{ $json.query }}\",\n          \"maxResults\": \"={{ $json.maxResults }}\",\n          \"minUrgencyScore\": \"={{ $json.minUrgency }}\"\n        }\n      },\n      \"id\": \"search_emails_loop\",\n      \"name\": \"🔍 Execute Searches (Loop)\",\n      \"type\": \"n8n-nodes-base.mcp\",\n      \"typeVersion\": 1,\n      \"position\": [1450, 250]\n    },\n    {\n      \"parameters\": {\n        \"jsCode\": \"// Aggregate search results\nconst results = $input.all();\nconst aggregated = {};\n\nresults.forEach(result => {\n  const name = result.name || 'Unknown';\n  aggregated[name] = {\n    count: (result.results || []).length,\n    results: (result.results || []).slice(0, 5)\n  };\n});\n\nreturn { search_results: aggregated };\"\n      },\n      \"id\": \"aggregate_searches\",\n      \"name\": \"Aggregate Search Results\",\n      \"type\": \"n8n-nodes-base.code\",\n      \"typeVersion\": 1,\n      \"position\": [1650, 250]\n    },\n    {\n      \"parameters\": {\n        \"html\": \"<div style='font-family: Arial; padding: 20px;'>\\n  <h1 style='margin: 0 0 20px 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px;'>✅ Email Management System - Complete Setup</h1>\\n  \\n  <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;'>\\n    <!-- Accounts Card -->\\n    <div style='background: #e8f5e9; border-left: 4px solid #4caf50; padding: 20px; border-radius: 5px;'>\\n      <h2 style='margin: 0 0 15px 0; color: #2e7d32;'>📧 Configured Accounts</h2>\\n      {{ $json.added_count > 0 ? `\\n      <p style='margin: 0 0 10px 0;'><strong style='color: #2e7d32; font-size: 24px;'>${$json.added_count}</strong> accounts configured</p>\\n      ` : '<p style=\\\"color: red;\\\">No accounts added</p>' }}\\n      <table border='1' style='width: 100%; border-collapse: collapse; margin-top: 10px;'>\\n        <tr style='background-color: #c8e6c9;'>\\n          <th style='padding: 8px; text-align: left;'>Account</th>\\n          <th style='padding: 8px;'>Provider</th>\\n        </tr>\\n        {{ ($json.accounts || []).map(acc => `\\n        <tr>\\n          <td style='padding: 8px;'>${acc.name}</td>\\n          <td style='padding: 8px;'>${acc.provider}</td>\\n        </tr>\\n        `).join('') }}\\n      </table>\\n    </div>\\n    \\n    <!-- Emails Summary Card -->\\n    <div style='background: #fff3e0; border-left: 4px solid #ff9800; padding: 20px; border-radius: 5px;'>\\n      <h2 style='margin: 0 0 15px 0; color: #e65100;'>📬 Email Summary</h2>\\n      <div style='display: flex; gap: 20px;'>\\n        <div>\\n          <div style='font-size: 24px; color: #d84315;'>${$json.urgent_count || 0}</div>\\n          <div style='color: #666; font-size: 12px;'>Urgent Emails</div>\\n        </div>\\n        <div>\\n          <div style='font-size: 24px; color: #f57c00;'>${$json.important_count || 0}</div>\\n          <div style='color: #666; font-size: 12px;'>Important Emails</div>\\n        </div>\\n      </div>\\n    </div>\\n  </div>\\n  \\n  <!-- Urgent Emails -->\\n  {{ $json.urgent_list && $json.urgent_list.length > 0 ? `\\n  <div style='background: #ffebee; border-left: 4px solid #f44336; padding: 20px; border-radius: 5px; margin-bottom: 20px;'>\\n    <h2 style='margin: 0 0 15px 0; color: #c62828;'>🚨 Top Urgent Emails</h2>\\n    <table border='1' style='width: 100%; border-collapse: collapse;'>\\n      <tr style='background-color: #ffcdd2;'>\\n        <th style='padding: 8px; text-align: left;'>Subject</th>\\n        <th style='padding: 8px;'>From</th>\\n        <th style='padding: 8px;'>Score</th>\\n        <th style='padding: 8px;'>Status</th>\\n      </tr>\\n      {{ $json.urgent_list.map(e => `\\n      <tr>\\n        <td style='padding: 8px;'>${e.subject}</td>\\n        <td style='padding: 8px;'>${e.from.substring(0, 25)}</td>\\n        <td style='padding: 8px;'><span style='color: red;'>● ${e.urgency_score}%</span></td>\\n        <td style='padding: 8px;'>${e.unread ? '✉️ Unread' : '📖 Read'}</td>\\n      </tr>\\n      `).join('') }}\\n    </table>\\n  </div>\\n  ` : '' }}\\n  \\n  <!-- Important Emails -->\\n  {{ $json.important_list && $json.important_list.length > 0 ? `\\n  <div style='background: #fff8e1; border-left: 4px solid #fbc02d; padding: 20px; border-radius: 5px; margin-bottom: 20px;'>\\n    <h2 style='margin: 0 0 15px 0; color: #f57f17;'>⭐ Top Important Emails</h2>\\n    <table border='1' style='width: 100%; border-collapse: collapse;'>\\n      <tr style='background-color: #fff9c4;'>\\n        <th style='padding: 8px; text-align: left;'>Subject</th>\\n        <th style='padding: 8px;'>From</th>\\n        <th style='padding: 8px;'>Score</th>\\n        <th style='padding: 8px;'>Reason</th>\\n      </tr>\\n      {{ $json.important_list.map(e => `\\n      <tr>\\n        <td style='padding: 8px;'>${e.subject}</td>\\n        <td style='padding: 8px;'>${e.from.substring(0, 25)}</td>\\n        <td style='padding: 8px;'><span style='color: orange;'>● ${e.importance_score}%</span></td>\\n        <td style='padding: 8px;'>${e.reason || 'Auto'}</td>\\n      </tr>\\n      `).join('') }}\\n    </table>\\n  </div>\\n  ` : '' }}\\n  \\n  <!-- Search Results -->\\n  {{ Object.keys($json.search_results || {}).length > 0 ? `\\n  <div style='background: #e1f5fe; border-left: 4px solid #0288d1; padding: 20px; border-radius: 5px;'>\\n    <h2 style='margin: 0 0 15px 0; color: #01579b;'>🔍 Search Results Summary</h2>\\n    <div style='display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;'>\\n      {{ Object.entries($json.search_results).map(([name, data]) => `\\n      <div style='background: white; padding: 15px; border-radius: 5px; border: 1px solid #b3e5fc;'>\\n        <div style='font-weight: bold;'>${name}</div>\\n        <div style='font-size: 24px; color: #0288d1;'>${data.count}</div>\\n        <div style='font-size: 12px; color: #666;'>emails found</div>\\n      </div>\\n      `).join('') }}\\n    </div>\\n  </div>\\n  ` : '' }}\\n  \\n  <div style='margin-top: 30px; padding: 20px; background: #f5f5f5; border-radius: 5px; text-align: center;'>\\n    <h3 style='margin: 0;'>✨ Setup Complete!</h3>\\n    <p style='color: #666; margin: 10px 0 0 0;'>Your email management system is ready. Enable automated monitoring workflows to get real-time updates.</p>\\n  </div>\\n</div>\"\n      },\n      \"id\": \"display_final_dashboard\",\n      \"name\": \"Display: Final Dashboard\",\n      \"type\": \"n8n-nodes-base.html\",\n      \"typeVersion\": 1,\n      \"position\": [1850, 150]\n    }\n  ],\n  \"connections\": {\n    \"🚀 Start Complete Setup\": {\n      \"main\": [[{ \"node\": \"📋 Define Complete Configuration\", \"type\": \"main\", \"index\": 0 }]]\n    },\n    \"📋 Define Complete Configuration\": {\n      \"main\": [\n        [{ \"node\": \"Display: Setup Starting\", \"type\": \"main\", \"index\": 0 }],\n        [{ \"node\": \"📧 Add Email Account (Loop)\", \"type\": \"main\", \"index\": 0 }]\n      ]\n    },\n    \"📧 Add Email Account (Loop)\": {\n      \"main\": [[{ \"node\": \"Aggregate Added Accounts\", \"type\": \"main\", \"index\": 0 }]]\n    },\n    \"Aggregate Added Accounts\": {\n      \"main\": [[{ \"node\": \"✅ List All Configured Accounts\", \"type\": \"main\", \"index\": 0 }]]\n    },\n    \"✅ List All Configured Accounts\": {\n      \"main\": [\n        [{ \"node\": \"🚨 Fetch Urgent Emails\", \"type\": \"main\", \"index\": 0 }],\n        [{ \"node\": \"Define Search Queries\", \"type\": \"main\", \"index\": 0 }]\n      ]\n    },\n    \"🚨 Fetch Urgent Emails\": {\n      \"main\": [[{ \"node\": \"Format Email Data\", \"type\": \"main\", \"index\": 0 }]]\n    },\n    \"Format Email Data\": {\n      \"main\": [[{ \"node\": \"Display: Final Dashboard\", \"type\": \"main\", \"index\": 0 }]]\n    },\n    \"Define Search Queries\": {\n      \"main\": [[{ \"node\": \"🔍 Execute Searches (Loop)\", \"type\": \"main\", \"index\": 0 }]]\n    },\n    \"🔍 Execute Searches (Loop)\": {\n      \"main\": [[{ \"node\": \"Aggregate Search Results\", \"type\": \"main\", \"index\": 0 }]]\n    },\n    \"Aggregate Search Results\": {\n      \"main\": [[{ \"node\": \"Display: Final Dashboard\", \"type\": \"main\", \"index\": 0 }]]\n    }\n  },\n  \"active\": true,\n  \"settings\": {\n    \"timezone\": \"UTC\"\n  }\n}

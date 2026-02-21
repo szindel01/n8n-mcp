@@ -1,0 +1,315 @@
+{
+  "description": "Email Management Configuration Example - Copy values to your workflow",
+  "version": "1.0",
+  "lastUpdated": "2025-02-12",
+
+  "accounts": {
+    "gmail_example": {
+      "accountName": "Personal Gmail",
+      "email": "your-email@gmail.com",
+      "provider": "gmail",
+      "refreshToken": "1//0gF8eV8Xj3A...",
+      "customUrgentKeywords": [
+        "urgent",
+        "ASAP",
+        "critical",
+        "emergency",
+        "immediate",
+        "deadline",
+        "action required"
+      ],
+      "customImportantKeywords": [
+        "meeting",
+        "contract",
+        "proposal",
+        "approval",
+        "decision",
+        "budget",
+        "strategy"
+      ]
+    },
+    "outlook_example": {
+      "accountName": "Work Outlook",
+      "email": "name@company.com",
+      "provider": "imap",
+      "host": "outlook.office365.com",
+      "port": 993,
+      "username": "name@company.com",
+      "password": "YOUR_APP_PASSWORD",
+      "defaultMailbox": "INBOX",
+      "customUrgentKeywords": [
+        "urgent",
+        "deadline",
+        "immediately",
+        "priority"
+      ],
+      "customImportantKeywords": [
+        "budget",
+        "strategy",
+        "board",
+        "compliance"
+      ]
+    },
+    "imap_generic": {
+      "accountName": "Other IMAP Account",
+      "email": "user@example.com",
+      "provider": "imap",
+      "host": "imap.example.com",
+      "port": 993,
+      "username": "user@example.com",
+      "password": "your_app_password",
+      "defaultMailbox": "INBOX",
+      "customUrgentKeywords": ["urgent"],
+      "customImportantKeywords": ["important"]
+    }
+  },
+
+  "imap_hosts": {
+    "gmail": {
+      "host": "imap.gmail.com",
+      "port": 993,
+      "note": "Use App Password, not regular password"
+    },
+    "outlook": {
+      "host": "outlook.office365.com",
+      "port": 993,
+      "note": "Use App Password from account.microsoft.com"
+    },
+    "yahoo": {
+      "host": "imap.mail.yahoo.com",
+      "port": 993,
+      "note": "Use App Password"
+    },
+    "protonmail": {
+      "host": "imap.protonmail.com",
+      "port": 993,
+      "note": "Use Bridge for IMAP access"
+    },
+    "custom": {
+      "host": "imap.your-domain.com",
+      "port": 993,
+      "note": "Check your email provider docs"
+    }
+  },
+
+  "search_queries_examples": [
+    {
+      "name": "All Urgent",
+      "query": "is:urgent"
+    },
+    {
+      "name": "All Important",
+      "query": "is:important"
+    },
+    {
+      "name": "Unread Emails",
+      "query": "is:unread"
+    },
+    {
+      "name": "With Attachments",
+      "query": "has:attachments"
+    },
+    {
+      "name": "Recent Urgent",
+      "query": "is:urgent after:2025-02-10"
+    },
+    {
+      "name": "From Specific Person",
+      "query": "from:boss@company.com"
+    },
+    {
+      "name": "Subject Contains",
+      "query": "subject:meeting"
+    },
+    {
+      "name": "Urgent from Boss",
+      "query": "from:boss@company.com is:urgent"
+    },
+    {
+      "name": "Unread with Files",
+      "query": "is:unread has:attachments"
+    },
+    {
+      "name": "Last Hour Emails",
+      "query": "after:2025-02-12T09:00:00Z"
+    },
+    {
+      "name": "Today's Urgent",
+      "query": "is:urgent after:2025-02-12"
+    },
+    {
+      "name": "Important Contracts",
+      "query": "subject:contract is:important"
+    }
+  ],
+
+  "urgency_scoring": {
+    "description": "How emails are scored for urgency (0.0 - 1.0)",
+    "factors": [
+      {
+        "factor": "Keyword match",
+        "boost": "+0.3",
+        "example": "Email subject contains 'urgent'"
+      },
+      {
+        "factor": "Marked as important (Gmail)",
+        "boost": "+0.3",
+        "example": "Gmail star indicator"
+      },
+      {
+        "factor": "Unread status",
+        "boost": "+0.2",
+        "example": "Not yet read"
+      },
+      {
+        "factor": "Recent arrival",
+        "boost": "+0.15",
+        "example": "Received in last hour"
+      },
+      {
+        "factor": "From frequent sender",
+        "boost": "+0.1",
+        "example": "Regular correspondent"
+      }
+    ],
+    "thresholds": {
+      "critical": "≥ 0.8",
+      "high": "≥ 0.6",
+      "medium": "≥ 0.4",
+      "low": "< 0.4"
+    }
+  },
+
+  "importance_scoring": {
+    "description": "How emails are scored for importance (0.0 - 1.0)",
+    "factors": [
+      {
+        "factor": "Keyword match",
+        "boost": "+0.25",
+        "example": "Contains 'meeting', 'contract', etc."
+      },
+      {
+        "factor": "Has attachments",
+        "boost": "+0.25",
+        "example": "Documents, files attached"
+      },
+      {
+        "factor": "Unread status",
+        "boost": "+0.1",
+        "example": "Not yet read"
+      },
+      {
+        "factor": "From executive/manager",
+        "boost": "+0.2",
+        "example": "Important sender"
+      },
+      {
+        "factor": "Many recipients",
+        "boost": "+0.15",
+        "example": "Broadcast email"
+      }
+    ]
+  },
+
+  "slack_channels": {
+    "recommended": [
+      {
+        "channel": "#emails",
+        "purpose": "All email notifications"
+      },
+      {
+        "channel": "#emails-critical",
+        "purpose": "Only critical urgency level"
+      },
+      {
+        "channel": "#emails-urgent",
+        "purpose": "Urgent emails only"
+      },
+      {
+        "channel": "#emails-digest",
+        "purpose": "Daily digest"
+      },
+      {
+        "channel": "#emails-errors",
+        "purpose": "System errors and failures"
+      }
+    ]
+  },
+
+  "workflow_schedules": {
+    "monitoring_24_7": {
+      "hourly_check": "Every hour, on the hour",
+      "daily_summary": "9:00 AM daily",
+      "critical_alert": "Immediate (as emails arrive)",
+      "weekly_report": "Monday 8:00 AM"
+    },
+    "setup": {
+      "account_verification": "After adding new account",
+      "sync_test": "Manual trigger"
+    },
+    "maintenance": {
+      "database_cleanup": "Daily at 2:00 AM",
+      "credential_refresh": "Monthly",
+      "performance_check": "Weekly"
+    }
+  },
+
+  "error_handling": {
+    "gmail_401": {
+      "error": "Unauthorized",
+      "cause": "Token expired or invalid",
+      "solution": "Refresh OAuth token"
+    },
+    "imap_timeout": {
+      "error": "Connection timeout",
+      "cause": "Network or server issue",
+      "solution": "Check host, port, firewall"
+    },
+    "mcp_connection_failed": {
+      "error": "Cannot connect to MCP server",
+      "cause": "Server not running or unreachable",
+      "solution": "Verify MCP is running: npm start:http"
+    },
+    "invalid_credentials": {
+      "error": "Authentication failed",
+      "cause": "Wrong password or username",
+      "solution": "Verify credentials, use app passwords"
+    }
+  },
+
+  "keywords_templates": {
+    "corporate": {
+      "urgent": ["urgent", "critical", "ASAP", "immediate", "emergency", "deadline"],
+      "important": ["meeting", "decision", "budget", "strategy", "board", "contract"]
+    },
+    "startup": {
+      "urgent": ["urgent", "ASAP", "critical", "bug", "outage"],
+      "important": ["investor", "partnership", "milestone", "launch"]
+    },
+    "sales": {
+      "urgent": ["deal", "close date", "follow up", "ASAP"],
+      "important": ["proposal", "contract", "signature", "approval"]
+    },
+    "customer_service": {
+      "urgent": ["angry", "error", "broken", "issue", "complaint"],
+      "important": ["refund", "credit", "satisfaction"]
+    },
+    "development": {
+      "urgent": ["critical bug", "production down", "security"],
+      "important": ["code review", "deployment", "release"]
+    }
+  },
+
+  "best_practices": [
+    "Use app-specific passwords, not your main password",
+    "Refresh OAuth tokens monthly for security",
+    "Archive old emails to improve search performance",
+    "Customize keywords for your organization",
+    "Monitor logs for connection issues",
+    "Test workflows in development first",
+    "Use Slack notifications for critical emails only",
+    "Backup workflow configurations regularly",
+    "Review and update search queries periodically",
+    "Monitor MCP server resource usage"
+  ]
+}

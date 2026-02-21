@@ -2,7 +2,112 @@
 
 Des workflows n8n prêts à l'emploi pour gérer les emails via la solution multi-boîtes mails n8n-mcp.
 
-## 🚀 Workflows Disponibles
+> **⚡ Quick Start:** Voir [QUICK-START.md](./QUICK-START.md) pour installation en 5 minutes!
+
+## 📋 Fichiers Disponibles
+
+```
+workflows/
+├── QUICK-START.md                              ← START HERE (5 min setup)
+├── README.md                                   ← This file (Full guide)
+├── example-config.json                         ← Config examples
+│
+├── 🎯 MASTER WORKFLOWS (Orchestration):
+│   ├── email-complete-setup-orchestration.json ← Full setup in one workflow
+│   └── email-monitoring-24-7.json              ← Continuous monitoring
+│
+├── 📧 ACCOUNT WORKFLOWS:
+│   ├── email-setup-workflow.json               ← Setup accounts
+│   └── email-account-management-workflow.json  ← Admin dashboard
+│
+├── 🔍 SEARCH WORKFLOWS:
+│   ├── email-search-urgent-workflow.json       ← Automated urgent search
+│   └── email-custom-search-workflow.json       ← Advanced search
+│
+└── 📊 LEGACY:
+    └── email-management-workflow.json          ← Original dashboard
+```
+
+## 🎯 Master Workflows (All-in-One)
+
+### 🏗️ **Complete Setup & Orchestration** - `email-complete-setup-orchestration.json` ⭐ RECOMMENDED
+
+Workflow complet qui configure et teste tout en une seule exécution!
+
+**Ce qu'il fait:**
+1. ✅ Configure les comptes email (Gmail + IMAP)
+2. ✅ Récupère les emails urgents/importants
+3. ✅ Exécute des recherches multiples
+4. ✅ Affiche un dashboard complet
+5. ✅ Génère un rapport de résumé
+
+**Flux:**
+```
+Trigger
+  ↓
+[Configuration] → [Add Accounts (Loop)] → [Verify Configuration]
+  ↓
+[Fetch Urgent Emails] + [Execute Searches (Loop)]
+  ↓
+[Format & Aggregate Data]
+  ↓
+[Display Final Dashboard]
+```
+
+**Avantages:**
+- 🎯 One-click setup complet
+- 📊 Dashboard final avec tous les résumés
+- 🔄 Pas besoin de lancer plusieurs workflows
+- ✨ Setup professionnel et immédiat
+
+**Utilisation:**
+1. Importer le workflow
+2. Modifier la configuration JSON (accounts, keywords)
+3. Cliquer "Execute Workflow"
+4. Consulter le dashboard final
+
+---
+
+### 📊 **24/7 Monitoring** - `email-monitoring-24-7.json`
+
+Monitoring continu avec alertes et rapports automatiques.
+
+**Ce qu'il fait:**
+- ⏰ **Toutes les heures**: Vérification urgente + alertes
+- 📅 **Chaque jour à 9h**: Rapport quotidien complet
+- 🚨 **En temps réel**: Alertes Slack si critical
+- 📈 **Statistiques**: Comptages par compte et par expéditeur
+
+**Déclencheurs:**
+```
+Every Hour (00min):
+  → Fetch urgent emails
+  → Check severity levels
+  → Send critical alerts
+  → Generate hourly report
+
+Every Day at 9 AM:
+  → Fetch last 24h summary
+  → Generate daily stats
+  → Show top senders
+  → Email report
+```
+
+**Avantages:**
+- 🔔 Alertes en temps réel pour critical
+- 📉 Monitoring proactif 24/7
+- 📊 Rapports horliers et quotidiens
+- 🎯 Zero interruption sauf urgent
+
+**Activation:**
+1. Importer le workflow
+2. Configurer Slack (optionnel)
+3. Toggle "Active" ON
+4. Workflow s'exécute automatiquement
+
+---
+
+## 🚀 Autres Workflows
 
 ### 1. **Email Setup** - `email-setup-workflow.json`
 Configure les comptes Gmail et IMAP.

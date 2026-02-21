@@ -1,0 +1,160 @@
+{
+  "name": "Email Monitoring - 24/7 Continuous",
+  "description": "Continuous email monitoring with notifications and reporting",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyHours",
+              "hour": 1,
+              "minute": 0
+            }
+          ]
+        }
+      },
+      "id": "schedule_hourly",
+      "name": "⏰ Every Hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [50, 100]
+    },
+    {
+      "parameters": {
+        "toolName": "list_email_accounts",
+        "toolInput": {
+          "includeInactive": false
+        }
+      },
+      "id": "list_accounts",
+      "name": "List Active Accounts",
+      "type": "n8n-nodes-base.mcp",
+      "typeVersion": 1,
+      "position": [250, 100]
+    },
+    {
+      "parameters": {
+        "toolName": "get_urgent_emails",
+        "toolInput": {
+          "maxResults": 50,
+          "onlyUnread": false
+        }
+      },
+      "id": "fetch_all_urgent",
+      "name": "🚨 Fetch Urgent Emails",
+      "type": "n8n-nodes-base.mcp",
+      "typeVersion": 1,
+      "position": [450, 100]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check severity levels\nconst urgent = $json.urgent || [];\nconst critical = urgent.filter(e => e.urgencyScore >= 0.8);\nconst high = urgent.filter(e => e.urgencyScore >= 0.6 && e.urgencyScore < 0.8);\nconst medium = urgent.filter(e => e.urgencyScore >= 0.4 && e.urgencyScore < 0.6);\nconst low = urgent.filter(e => e.urgencyScore < 0.4);\n\nreturn {\n  critical_count: critical.length,\n  high_count: high.length,\n  medium_count: medium.length,\n  low_count: low.length,\n  total_urgent: urgent.length,\n  has_critical: critical.length > 0,\n  critical_emails: critical.slice(0, 5)\n};"
+      },
+      "id": "analyze_severity",
+      "name": "Analyze Severity Levels",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [650, 100]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "expression": "={{ $json.has_critical }}"
+      },
+      "id": "check_critical",
+      "name": "Any Critical Emails?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 100]
+    },
+    {
+      "parameters": {
+        "channel": "#emails-critical",
+        "text": "🚨 CRITICAL ALERT: {{ $json.critical_count }} critical emails detected!\n\n{{ $json.critical_emails.map(e => `• ${e.subject} (${(e.urgencyScore * 100).toFixed(0)}%)`).join('\\n') }}\n\nAccount: {{ $json.critical_emails[0]?.accountName }}\nReceived: {{ new Date($json.critical_emails[0]?.receivedAt).toLocaleString() }}"
+      },
+      "id": "slack_critical_alert",
+      "name": "Send Slack Alert (Critical)",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [1050, 50]
+    },
+    {
+      "parameters": {
+        "mode": "expressionEnabled",
+        "expression": "=[{\n  \"query\": \"is:urgent after:{{ new Date(Date.now() - 3600000).toISOString().split('T')[0] }}\",\n  \"name\": \"Last Hour Urgent\"\n}, {\n  \"query\": \"is:important after:{{ new Date(Date.now() - 86400000).toISOString().split('T')[0] }}\",\n  \"name\": \"Last 24h Important\"\n}, {\n  \"query\": \"is:unread has:attachments\",\n  \"name\": \"Unread with Attachments\"\n}]"
+      },
+      "id": "define_reports",
+      "name": "Define Report Queries",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [450, 250]
+    },
+    {
+      "parameters": {
+        "toolName": "search_emails",
+        "toolInput": {
+          "query": "={{ $json.query }}",
+          "maxResults": 100,
+          "minUrgencyScore": 0
+        }
+      },
+      "id": "search_report_emails",
+      "name": "Search Report Emails (Loop)",
+      "type": "n8n-nodes-base.mcp",
+      "typeVersion": 1,
+      "position": [650, 250]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Compile monitoring report\nconst results = $input.all();\nconst report = {\n  timestamp: new Date().toISOString(),\n  checks: results.map(r => ({\n    category: r.name,\n    count: (r.results || []).length,\n    results: (r.results || []).slice(0, 3)\n  }))\n};\n\nreturn report;"
+      },
+      "id": "compile_report",
+      "name": "Compile Monitoring Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [850, 250]
+    },
+    {
+      "parameters": {
+        "html": "<div style='font-family: Arial; padding: 20px; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; border-radius: 10px;'>\n  <h1 style='margin: 0 0 20px 0;'>📊 Email Monitoring Report - Hourly</h1>\n  <p style='margin: 0 0 20px 0; color: #b0d0ff;'>Report Generated: {{ new Date().toLocaleString() }}</p>\n  \n  <!-- Severity Breakdown -->\n  <div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px;'>\n    <div style='background: rgba(244, 67, 54, 0.9); padding: 15px; border-radius: 5px; text-align: center;'>\n      <div style='font-size: 32px; font-weight: bold;'>{{ $json.critical_count }}</div>\n      <div style='font-size: 12px;'>🔴 CRITICAL</div>\n    </div>\n    <div style='background: rgba(255, 152, 0, 0.9); padding: 15px; border-radius: 5px; text-align: center;'>\n      <div style='font-size: 32px; font-weight: bold;'>{{ $json.high_count }}</div>\n      <div style='font-size: 12px;'>🟠 HIGH</div>\n    </div>\n    <div style='background: rgba(255, 193, 7, 0.9); padding: 15px; border-radius: 5px; text-align: center;'>\n      <div style='font-size: 32px; font-weight: bold;'>{{ $json.medium_count }}</div>\n      <div style='font-size: 12px;'>🟡 MEDIUM</div>\n    </div>\n    <div style='background: rgba(76, 175, 80, 0.9); padding: 15px; border-radius: 5px; text-align: center;'>\n      <div style='font-size: 32px; font-weight: bold;'>{{ $json.low_count }}</div>\n      <div style='font-size: 12px;'>🟢 LOW</div>\n    </div>\n  </div>\n  \n  {{ $json.has_critical ? `\n  <div style='background: rgba(244, 67, 54, 0.2); border-left: 4px solid #f44336; padding: 15px; border-radius: 5px; margin-bottom: 20px;'>\n    <h2 style='margin: 0 0 10px 0; color: #ff6e6e;'>🚨 CRITICAL EMAILS DETECTED</h2>\n    <table border='1' style='width: 100%; border-collapse: collapse; border-color: #ff6e6e;'>\n      <tr style='background-color: rgba(244, 67, 54, 0.3);'>\n        <th style='padding: 8px; text-align: left;'>Subject</th>\n        <th style='padding: 8px;'>From</th>\n        <th style='padding: 8px;'>Score</th>\n      </tr>\n      {{ ($json.critical_emails || []).map(e => `\n      <tr>\n        <td style='padding: 8px;'>${e.subject}</td>\n        <td style='padding: 8px; font-size: 12px;'>${e.from.substring(0, 30)}</td>\n        <td style='padding: 8px;'>${(e.urgencyScore * 100).toFixed(0)}%</td>\n      </tr>\n      `).join('') }}\n    </table>\n  </div>\n  ` : `<div style='background: rgba(76, 175, 80, 0.2); border-left: 4px solid #4caf50; padding: 15px; border-radius: 5px; margin-bottom: 20px;'>\n    <p style='margin: 0;'>✅ No critical emails detected</p>\n  </div>` }}\n  \n  <!-- Report Categories -->\n  {{ $json.checks && $json.checks.map(check => `\n  <div style='background: rgba(255,255,255,0.1); padding: 15px; border-radius: 5px; margin-bottom: 15px;'>\n    <h3 style='margin: 0 0 10px 0;'>${check.category}: <span style='color: #4dd0e1;'>${check.count}</span></h3>\n    {{ check.results.length > 0 ? `\n    <ul style='margin: 0; padding-left: 20px;'>\n      ${check.results.map(e => `<li>${e.subject.substring(0, 50)}...</li>`).join('')}\n    </ul>\n    ` : '<p style=\"margin: 0; color: #b0d0ff;\">No results</p>' }}\n  </div>\n  `).join('') }}\n  \n  <div style='margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 5px; text-align: center;'>\n    <p style='margin: 0; color: #b0d0ff; font-size: 12px;'>Next report: {{ new Date(Date.now() + 3600000).toLocaleTimeString() }}</p>\n  </div>\n</div>"
+      },
+      "id": "display_hourly_report",
+      "name": "Display Hourly Report",
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1,
+      "position": [1050, 250]
+    },
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyDayByHour",
+              "hour": 9,
+              "minute": 0
+            }
+          ]
+        }
+      },
+      "id": "schedule_daily",
+      "name": "📅 Every Day at 9 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [50, 450]
+    },
+    {
+      "parameters": {
+        "toolName": "search_emails",
+        "toolInput": {
+          "query": "after:{{ new Date(Date.now() - 86400000).toISOString().split('T')[0] }}",
+          "maxResults": 200,
+          "minUrgencyScore": 0
+        }
+      },
+      "id": "fetch_daily_summary",
+      "name": "Fetch Daily Summary",
+      "type": "n8n-nodes-base.mcp",
+      "typeVersion": 1,
+      "position": [250, 450]
+    },\n    {\n      \"parameters\": {\n        \"jsCode\": \"// Generate daily stats\nconst results = $json.results || [];\nconst urgent = results.filter(e => e.urgencyScore >= 0.6);\nconst important = results.filter(e => e.importanceScore >= 0.6);\nconst unread = results.filter(e => !e.isRead);\n\nconst byAccount = {};\nresults.forEach(e => {\n  const acc = e.accountName || 'Unknown';\n  if (!byAccount[acc]) byAccount[acc] = 0;\n  byAccount[acc]++;\n});\n\nreturn {\n  total_emails: results.length,\n  urgent_count: urgent.length,\n  important_count: important.length,\n  unread_count: unread.length,\n  by_account: byAccount,\n  top_senders: results.reduce((acc, e) => {\n    const sender = e.from;\n    acc[sender] = (acc[sender] || 0) + 1;\n    return acc;\n  }, {})\n};\"\n      },\n      \"id\": \"generate_daily_stats\",\n      \"name\": \"Generate Daily Stats\",\n      \"type\": \"n8n-nodes-base.code\",\n      \"typeVersion\": 1,\n      \"position\": [450, 450]\n    },\n    {\n      \"parameters\": {\n        \"html\": \"<div style='font-family: Arial; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px;'>\n  <h1 style='margin: 0 0 20px 0;'>📈 Email Management - Daily Summary</h1>\n  <p style='margin: 0 0 20px 0; color: #e0d7ff;'>Date: {{ new Date().toLocaleDateString() }}</p>\n  \n  <!-- Key Metrics -->\n  <div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px;'>\n    <div style='background: rgba(255,255,255,0.1); padding: 15px; border-radius: 5px; text-align: center;'>\n      <div style='font-size: 36px; font-weight: bold;'>{{ $json.total_emails }}</div>\n      <div>Total Emails</div>\n    </div>\n    <div style='background: rgba(244, 67, 54, 0.2); padding: 15px; border-radius: 5px; text-align: center;'>\n      <div style='font-size: 36px; font-weight: bold;'>{{ $json.urgent_count }}</div>\n      <div>🚨 Urgent</div>\n    </div>\n    <div style='background: rgba(255, 193, 7, 0.2); padding: 15px; border-radius: 5px; text-align: center;'>\n      <div style='font-size: 36px; font-weight: bold;'>{{ $json.important_count }}</div>\n      <div>⭐ Important</div>\n    </div>\n    <div style='background: rgba(33, 150, 243, 0.2); padding: 15px; border-radius: 5px; text-align: center;'>\n      <div style='font-size: 36px; font-weight: bold;'>{{ $json.unread_count }}</div>\n      <div>📬 Unread</div>\n    </div>\n  </div>\n  \n  <!-- By Account -->\n  <div style='margin-bottom: 20px;'>\n    <h2 style='margin: 0 0 15px 0;'>📧 Emails by Account</h2>\n    <div style='display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;'>\n      {{ Object.entries($json.by_account).map(([acc, count]) => `\n      <div style='background: rgba(255,255,255,0.1); padding: 12px; border-radius: 5px;'>\n        <div style='font-weight: bold;'>${acc}</div>\n        <div style='font-size: 24px;'>${count}</div>\n      </div>\n      `).join('') }}\n    </div>\n  </div>\n  \n  <!-- Top Senders -->\n  <div>\n    <h2 style='margin: 0 0 15px 0;'>👥 Top Senders</h2>\n    <ol style='margin: 0; padding-left: 20px;'>\n      {{ Object.entries($json.top_senders)\n         .sort((a, b) => b[1] - a[1])\n         .slice(0, 5)\n         .map(([sender, count]) => `<li>${sender.substring(0, 40)} (<b>${count}</b>)</li>`)\n         .join('') }}\n    </ol>\n  </div>\n</div>\"\n      },\n      \"id\": \"display_daily_summary\",\n      \"name\": \"Display Daily Summary\",\n      \"type\": \"n8n-nodes-base.html\",\n      \"typeVersion\": 1,\n      \"position\": [650, 450]\n    }\n  ],\n  \"connections\": {\n    \"⏰ Every Hour\": {\n      \"main\": [[{ \"node\": \"List Active Accounts\", \"type\": \"main\", \"index\": 0 }]]\n    },\n    \"List Active Accounts\": {\n      \"main\": [\n        [{ \"node\": \"🚨 Fetch Urgent Emails\", \"type\": \"main\", \"index\": 0 }],\n        [{ \"node\": \"Define Report Queries\", \"type\": \"main\", \"index\": 0 }]\n      ]\n    },\n    \"🚨 Fetch Urgent Emails\": {\n      \"main\": [[{ \"node\": \"Analyze Severity Levels\", \"type\": \"main\", \"index\": 0 }]]\n    },\n    \"Analyze Severity Levels\": {\n      \"main\": [[{ \"node\": \"Any Critical Emails?\", \"type\": \"main\", \"index\": 0 }]]\n    },\n    \"Any Critical Emails?\": {\n      \"main\": [\n        [{ \"node\": \"Send Slack Alert (Critical)\", \"type\": \"main\", \"index\": 0 }],\n        [{ \"node\": \"Compile Monitoring Report\", \"type\": \"main\", \"index\": 0 }]\n      ]\n    },\n    \"Define Report Queries\": {\n      \"main\": [[{ \"node\": \"Search Report Emails (Loop)\", \"type\": \"main\", \"index\": 0 }]]\n    },\n    \"Search Report Emails (Loop)\": {\n      \"main\": [[{ \"node\": \"Compile Monitoring Report\", \"type\": \"main\", \"index\": 0 }]]\n    },\n    \"Compile Monitoring Report\": {\n      \"main\": [[{ \"node\": \"Display Hourly Report\", \"type\": \"main\", \"index\": 0 }]]\n    },\n    \"📅 Every Day at 9 AM\": {\n      \"main\": [[{ \"node\": \"Fetch Daily Summary\", \"type\": \"main\", \"index\": 0 }]]\n    },\n    \"Fetch Daily Summary\": {\n      \"main\": [[{ \"node\": \"Generate Daily Stats\", \"type\": \"main\", \"index\": 0 }]]\n    },\n    \"Generate Daily Stats\": {\n      \"main\": [[{ \"node\": \"Display Daily Summary\", \"type\": \"main\", \"index\": 0 }]]\n    }\n  },\n  \"active\": true,\n  \"settings\": {\n    \"timezone\": \"UTC\"\n  }\n}
